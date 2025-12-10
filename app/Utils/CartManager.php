@@ -371,7 +371,7 @@ class CartManager
     }
 
     public static function cart_grand_total($cartGroupId = null, $type = null)
-    {
+    {   
         if ($type == 'checked') {
             $cart = CartManager::getCartListQuery(groupId: $cartGroupId, type: 'checked');
             $shippingCost = CartManager::get_shipping_cost(groupId: $cartGroupId, type: 'checked');
@@ -380,13 +380,14 @@ class CartManager
             $shippingCost = CartManager::get_shipping_cost(groupId: $cartGroupId);
         }
         $total = 0;
+        $delivery= getWebConfig('order_wise_shipping_cost') ?? 0;
         if (!empty($cart)) {
             foreach ($cart as $item) {
                 $discount = getProductPriceByType(product: $item['product'], type: 'discounted_amount', result: 'value', price: $item['price']);
                 $productSubtotal = ($item['price'] - $discount) * $item['quantity'];
                 $total += $productSubtotal;
             }
-            $total += $shippingCost;
+            $total += $shippingCost + $delivery;
         }
         return $total;
     }

@@ -365,7 +365,7 @@ class CustomerController extends Controller
     }
 
     public function get_order_list(Request $request): JsonResponse
-    {
+    { 
         $status = array(
             'ongoing' => ['out_for_delivery', 'processing', 'confirmed', 'pending'],
             'canceled' => ['canceled', 'failed', 'returned'],
@@ -385,6 +385,7 @@ class CustomerController extends Controller
             ->paginate($request['limit'], ['*'], 'page', $request['offset']);
 
         $orders->map(function ($data) {
+             $data['delivery']= getWebConfig('order_wise_shipping_cost');
             $data->details->map(function ($query) {
                 $query['product'] = Helpers::product_data_formatting(json_decode($query['product'], true));
                 return $query;
@@ -449,6 +450,7 @@ class CustomerController extends Controller
                 $reviewData = ($reviews[0]['order_id'] == null ? $reviews[0] : null);
             }
             $query['reviewData'] = $reviewData;
+            $query['delivery'] = getWebConfig('order_wise_shipping_cost');
             return $query;
         });
         return response()->json($detailsList, 200);
