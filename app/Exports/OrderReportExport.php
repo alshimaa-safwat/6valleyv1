@@ -51,7 +51,8 @@ class OrderReportExport implements FromView, ShouldAutoSize, WithStyles, WithCol
             'M' => 18,  // Shipping Method
             'N' => 16,  // Commission
             'O' => 22,  // Deliveryman Incentive
-            'P' => 15,  // Status
+            'P' => 18,  // Brand 
+            'Q' => 15,  // Status
         ];
     }
     
@@ -61,29 +62,30 @@ class OrderReportExport implements FromView, ShouldAutoSize, WithStyles, WithCol
         foreach ($this->data['orders'] as $order) {
             $totalRows += $order->details->count();
         }
-        
+
         $sheet->getStyle('A1:A2')->getFont()->setBold(true);
-        
-        $sheet->getStyle('A3:P3')->getFont()->setBold(true)->getColor()->setARGB('FFFFFF');
-        
-        $sheet->getStyle('A3:P3')->getAlignment()->setWrapText(true);
-        
-        $sheet->getStyle('A3:P3')->getFill()->applyFromArray([
+
+        // Header
+        $sheet->getStyle('A3:Q3')
+            ->getFont()->setBold(true)->getColor()->setARGB('FFFFFF');
+
+        $sheet->getStyle('A3:Q3')->getAlignment()->setWrapText(true);
+
+        $sheet->getStyle('A3:Q3')->getFill()->applyFromArray([
             'fillType' => 'solid',
-            'rotation' => 0,
             'color' => ['rgb' => '063C93'],
         ]);
-        
-        $sheet->getStyle('P4:P' . $totalRows)->getFill()->applyFromArray([
+
+        // Status column (Q)
+        $sheet->getStyle('Q4:Q' . $totalRows)->getFill()->applyFromArray([
             'fillType' => 'solid',
-            'rotation' => 0,
             'color' => ['rgb' => 'FFF9D1'],
         ]);
-        
+
         $sheet->setShowGridlines(false);
-        
+
         return [
-            'A1:P' . $totalRows => [
+            'A1:Q' . $totalRows => [
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
@@ -93,39 +95,41 @@ class OrderReportExport implements FromView, ShouldAutoSize, WithStyles, WithCol
             ],
         ];
     }
-    
-    public function registerEvents(): array
+
+   public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
+
                 $totalRows = 3;
                 foreach ($this->data['orders'] as $order) {
                     $totalRows += $order->details->count();
                 }
-                
-                $event->sheet->getStyle('A1:P1')
+
+                $event->sheet->getStyle('A1:Q1')
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
-                
-                $event->sheet->getStyle('A3:P' . $totalRows)
+
+                $event->sheet->getStyle('A3:Q' . $totalRows)
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
-                
-                $event->sheet->getStyle('A2:P2')
+
+                $event->sheet->getStyle('A2:Q2')
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_LEFT)
                     ->setVertical(Alignment::VERTICAL_CENTER);
-                
-                $event->sheet->mergeCells('A1:P1');
+
+                // Merge cells
+                $event->sheet->mergeCells('A1:Q1');
                 $event->sheet->mergeCells('A2:B2');
-                $event->sheet->mergeCells('C2:P2');
-                
+                $event->sheet->mergeCells('C2:Q2');
+
                 $event->sheet->getRowDimension(2)->setRowHeight(80);
                 $event->sheet->getDefaultRowDimension()->setRowHeight(30);
-                
-                // Set row height for image rows
+
+                // Image rows height
                 $currentRow = 4;
                 foreach ($this->data['orders'] as $order) {
                     foreach ($order->details as $detail) {
@@ -133,13 +137,13 @@ class OrderReportExport implements FromView, ShouldAutoSize, WithStyles, WithCol
                         $currentRow++;
                     }
                 }
-                
-                // Add product images
+
+                // Add images
                 $this->addProductImages($event);
             },
         ];
     }
-    
+
     private function addProductImages($event)
     {
         $currentRow = 4; // Start from first data row

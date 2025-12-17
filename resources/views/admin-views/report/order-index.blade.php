@@ -60,6 +60,20 @@
                             </select>
                         </div>
 
+                        <div class="col-sm-6 col-md-3">
+                            <label class="mb-2">{{ translate('select_Brand') }}</label>
+                            <select class="custom-select text-ellipsis" name="brand_id">
+                                <option value="all">{{ translate('all') }}</option>
+
+                                @foreach($brands as $brand)
+                                    <option value="{{ $brand->id }}"
+                                        {{ request('brand_id') == $brand->id ? 'selected' : '' }}>
+                                        {{ $brand->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <div class="col-sm-6 col-md-3 filter-btn">
                             <button type="submit" class="btn btn-primary">
                                 {{translate('filter')}}
@@ -220,7 +234,7 @@
                             </button>
                             <ul class="dropdown-menu dropdown-menu-right">
                                 <li>
-                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.report.order-report-excel', ['date_type'=>request('date_type'), 'seller_id'=>request('seller_id'), 'from'=>request('from'), 'to'=>request('to'), 'search'=>request('search'),'order_type'=>request('order_type')]) }}">
+                                    <a class="dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.report.order-report-excel', ['date_type'=>request('date_type'), 'seller_id'=>request('seller_id'), 'from'=>request('from'), 'to'=>request('to'), 'search'=>request('search'),'order_type'=>request('order_type'),'brand_id'=>request('brand_id')]) }}">
                                         <span class="text-success pt-1"><i class="fi fi-sr-file-excel"></i></span>
                                         {{ translate('excel') }}
                                     </a>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Contracts\Repositories\VendorRepositoryInterface;
+use App\Contracts\Repositories\BrandRepositoryInterface;
 use App\Enums\ExportFileNames\Admin\Report;
 use App\Utils\Helpers;
 use App\Exports\OrderReportExport;
@@ -23,6 +24,7 @@ class OrderReportController extends Controller
 {
     public function __construct(
         private readonly VendorRepositoryInterface $vendorRepo,
+        private readonly BrandRepositoryInterface  $brandRepo,
     )
     {
     }
@@ -34,6 +36,8 @@ class OrderReportController extends Controller
         $from = $request['from'];
         $to = $request['to'];
         $order_type = $request['order_type'] ?? 'all';
+        $brands = $this->brandRepo->getListWhere(filters: ['status' => 1],dataLimit: 'all');
+
         $search = $request['search'];
         $query_param = ['seller_id' => $seller_id, 'search' => $search, 'date_type' => $date_type, 'from' => $from, 'to' => $to];
         $sellers = Seller::where(['status' => 'approved'])->get();
@@ -111,7 +115,7 @@ class OrderReportController extends Controller
             'offline_payment' => $offline_payment,
             'digital_payment' => $digital_payment,
         ];
-        return view('admin-views.report.order-index', compact('orders', 'order_count', 'payment_data', 'chart_data', 'due_amount', 'settled_amount', 'sellers', 'seller_id', 'search', 'date_type', 'from', 'to','order_type' ,'totalReferralDiscount'));
+        return view('admin-views.report.order-index', compact('orders', 'order_count', 'payment_data', 'chart_data', 'due_amount', 'settled_amount', 'sellers', 'seller_id', 'search', 'date_type', 'from', 'to','order_type' ,'totalReferralDiscount','brands'));
     }
 
     public function order_report_chart_filter($request)
@@ -322,7 +326,7 @@ class OrderReportController extends Controller
     public function orderReportExportExcel(Request $request): BinaryFileResponse
     {
         // $orders = self::all_order_table_data_filter($request)->latest('updated_at')->get();
-        $orders = self::all_order_table_data_filter($request)->with(['details.productAllStatus'])->latest('updated_at')->get();   
+        $orders = self::all_order_table_data_filter($request)->with(['details.productAllStatus.brand'])->latest('updated_at')->get();   
 
         $vendor = $request->has('seller_id') && $request['seller_id'] != 'inhouse' && $request['seller_id'] != 'all' ? ($this->vendorRepo->getFirstWhere(params: ['id' => $request['seller_id']], relations: ['shop'])) : ($request['seller_id'] ?? 'all');
         $data = [
@@ -344,6 +348,8 @@ class OrderReportController extends Controller
         $seller_id = $request['seller_id'] ?? 'all';
         $date_type = $request['date_type'] ?? 'this_year';
         $order_type = $request['order_type'] ?? 'all';
+        $brand_id = $request['brand_id'] ?? 'all';
+
 
         $orders_query = Order::with(['orderTransaction'])->withSum('details', 'tax')
             ->withSum('details', 'discount')
@@ -359,7 +365,14 @@ class OrderReportController extends Controller
             })
             ->when($order_type !== 'all', function ($q) use ($order_type) {
                  $q->where('order_type', $order_type);
-        });
+            })
+
+            ->when($brand_id != 'all', function ($q) use ($brand_id) {
+                $q->whereHas('details.product', function ($query) use ($brand_id) {
+                    $query->where('brand_id', $brand_id);
+                });
+            });
+
         return self::date_wise_common_filter($orders_query, $date_type, $from, $to);
     }
 

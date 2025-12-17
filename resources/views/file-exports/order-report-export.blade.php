@@ -32,6 +32,7 @@
         <td>{{translate('item_details')}}</td>
         <td>{{translate('item_price')}}</td>
         <td>{{translate('item_discount')}}</td>
+        <td>{{translate('brand')}}</td>
         <td>{{translate('total_Amount')}}</td>
         <td>{{translate('total_Pcs')}}</td>
         <td>{{translate('product_Discount')}}</td>
@@ -72,6 +73,8 @@
                     
                     {{-- Item Discount --}}
                     <td>{{ setCurrencySymbol(amount: usdToDefaultCurrency(amount: $detail['discount'])) }}</td>
+
+                    <td> {{ $productDetails?->brand?->name ?? '-' }}</td>
                     
                     @if($index == 0)
                         <td rowspan="{{$detailsCount}}">{{ setCurrencySymbol(amount: usdToDefaultCurrency(amount: $order->order_amount ?? 0)) }}</td>
