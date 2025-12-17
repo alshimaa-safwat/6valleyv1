@@ -605,7 +605,7 @@
                                 @endforeach
                             @endif
                         </td>
-                        @if($order->billing_address_data)
+                        {{-- @if($order->billing_address_data)
                             <td colspan="2" class="fs-10 border-left vertical-align-top" style="padding:8px 16px;">
                                     <?php
                                     $billingAddress = $order->billing_address_data
@@ -627,7 +627,7 @@
                                     </div>
                                 </div>
                             </td>
-                        @endif
+                        @endif --}}
                         <td colspan="2" class="fs-10 vertical-align-top  {{$direction === "rtl" ? '' : 'border-left' }}" style="padding:8px 16px;">
                             @if($order->shipping_address_data)
                                     <?php
