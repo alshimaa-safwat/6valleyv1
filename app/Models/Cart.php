@@ -71,6 +71,7 @@ class Cart extends Model
         'product_type',
         'digital_product_type',
         'color',
+        'shape',
         'choices',
         'variations',
         'variant',

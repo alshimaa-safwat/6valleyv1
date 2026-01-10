@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     getProductTypeFunctionality();
     getUpdateDigitalVariationFunctionality();
     productColorSwitcherFunctionalityRender();
+    productShapeSwitcherFunctionalityRender();
 });
 
 function productColorSwitcherFunctionalityRender() {
@@ -32,6 +33,7 @@ function productColorSwitcherFunctionalityRender() {
     }
 
     if ($("#product-color-switcher").prop("checked")) {
+        console.log("product-color-switcher is checked");
         $(".color_image_column").removeClass("d-none");
         $("#additional_Image_Section .col-md-4").addClass("col-lg-2");
     } else {
@@ -81,6 +83,48 @@ function elementProductColorSwitcherByIDFunctionality(action = null) {
         $('#colors-selector-input').prop('disabled', true);
     } else {
         $('#colors-selector-input').prop('disabled', false);
+    }
+}
+
+function productShapeSwitcherFunctionalityRender() {
+    let shapesSelect = $('#shapes-selector-input');
+
+    // Initialize Select2 if not already initialized
+    if (!shapesSelect.hasClass('select2-hidden-accessible')) {
+        shapesSelect.select2({
+            placeholder: "Select shapes",
+            allowClear: true
+        });
+    }
+
+    // Set initial state based on checkbox
+    if ($('#product-shape-switcher').is(':checked')) {
+        shapesSelect.prop('disabled', false);
+        $(".shape_image_column").removeClass("d-none");
+        if (typeof shapeWiseImageFunctionality === 'function') {
+            shapeWiseImageFunctionality(shapesSelect);
+        }
+    } else {
+        shapesSelect.prop('disabled', true);
+        $(".shape_image_column").addClass("d-none");
+    }
+}
+
+function elementProductShapeSwitcherByIDFunctionality(action = null) {
+    let shapesSelect = $('#shapes-selector-input');
+    let isChecked = $("#product-shape-switcher").is(":checked");
+
+    if (isChecked) {
+        shapesSelect.prop('disabled', false);
+        $(".shape_image_column").removeClass("d-none");
+        if (typeof shapeWiseImageFunctionality === 'function') {
+            shapeWiseImageFunctionality(shapesSelect);
+        }
+    } else {
+        shapesSelect.val(null).trigger("change");
+        shapesSelect.prop('disabled', true);
+        $(".shape_image_column").addClass("d-none");
+        $("#shape-wise-image-section").empty().html("");
     }
 }
 

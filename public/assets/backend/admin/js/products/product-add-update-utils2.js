@@ -27,8 +27,28 @@ $("#digital-product-type-input").on("change", function() {
 });
 
 $("#product-color-switcher").on("click", function() {
+    console.log("product-color-switcher clicked");
     elementProductColorSwitcherByIDFunctionality();
     colorWiseImageFunctionality($("#colors-selector-input"));
+});
+
+// Shape switcher - use delegated event for dynamic elements
+$(document).on("click change", "#product-shape-switcher", function() {
+    console.log("product-shape-switcher clicked");
+    elementProductShapeSwitcherByIDFunctionality();
+});
+
+// Shapes selector change event
+$("#shapes-selector-input").on("change", function() {
+    let elementProductShapeSwitcherByID = $("#product-shape-switcher");
+    if (
+        elementProductShapeSwitcherByID &&
+        elementProductShapeSwitcherByID.prop("checked")
+    ) {
+        if (typeof shapeWiseImageFunctionality === 'function') {
+            shapeWiseImageFunctionality($(this));
+        }
+    }
 });
 
 document.addEventListener("click", function(e) {

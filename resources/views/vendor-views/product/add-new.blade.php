@@ -284,6 +284,19 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="col-md-6 col-lg-4 col-xl-3 physical_product_show">
+                                    <div class="form-group">
+                                        <label class="title-color">
+                                            {{ translate('Weight (kg)') }}
+                                            <span class="input-required-icon">*</span>
+                                        </label>
+                                        <input type="number" step="0.01" min="0" name="weight" id="weight" class="form-control"
+                                            value="{{ old('weight') }}" placeholder="{{ translate('Enter weight in kg') }}">
+                                        @error('weight')
+                                            <div class="text-danger">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                                 <div class="col-md-9">
                                     <div class="form-group">
                                         <label class="title-color d-flex align-items-center gap-2">
@@ -549,6 +562,29 @@
                                 </div>
 
                                 <div class="col-md-6">
+                                    <div class="mb-3 d-flex align-items-center gap-2">
+                                        <label for="shapes" class="title-color mb-0">
+                                            {{ translate('select_shapes') }} :
+                                        </label>
+                                        <label class="switcher">
+                                            <input type="checkbox" class="switcher_input" id="product-shape-switcher"
+                                                   value="1"
+                                                   name="shapes_active">
+                                            <span class="switcher_control"></span>
+                                        </label>
+                                    </div>
+                                    <select
+                                        class="js-example-basic-multiple js-states js-example-responsive form-control shape-var-select"
+                                        name="shapes[]" multiple="multiple" id="shapes-selector" disabled>
+                                        @foreach ($shapes as $key => $shape)
+                                            <option value="{{ $shape->id }}">
+                                                {{ $shape['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6">
                                     <label for="product-choice-attributes" class="title-color">
                                         {{ translate('select_attributes') }} :
                                     </label>
@@ -679,6 +715,35 @@
                                     </p>
 
                                     <div id="color-wise-image-section" class="row g-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="shape_image_column item-2 d-none">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                        <div>
+                                            <label for="name"
+                                                   class="title-color text-capitalize font-weight-bold mb-0">{{ translate('shape_wise_product_image') }}</label>
+                                            <span
+                                                class="badge badge-soft-info">{{ THEME_RATIO[theme_root_path()]['Product Image'] }}</span>
+                                            <span class="input-label-secondary cursor-pointer" data-toggle="tooltip"
+                                                  title="{{ translate('add_shape-wise_product_images_here') }}.">
+                                                <img src="{{ dynamicAsset(path: 'public/assets/back-end/img/info-circle.svg') }}"
+                                                     alt="">
+                                            </span>
+                                        </div>
+
+                                    </div>
+                                    <p class="text-muted">
+                                        {{ translate('must_upload_shape_wise_images_first.') }}
+                                        {{ translate('Shape_is_shown_in_the_image_section_top_right') }}
+                                    </p>
+
+                                    <div id="shape-wise-image-section" class="row g-2"></div>
                                 </div>
                             </div>
                         </div>
@@ -961,10 +1026,6 @@
     <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/tags-input.min.js') }}"></script>
     <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/spartan-multi-image-picker.js') }}"></script>
     <script src="{{ dynamicAsset(path: 'public/assets/back-end/plugins/summernote/summernote.min.js') }}"></script>
-    <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/vendor/product-add-update.js') }}"></script>
-    <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/vendor/product-add-colors-img.js') }}"></script>
-
-
-
-
+    <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/vendor/product-add-update.js') }}?v=1"></script>
+    <script src="{{ dynamicAsset(path: 'public/assets/back-end/js/vendor/product-add-colors-img.js') }}?v=1"></script>
 @endpush

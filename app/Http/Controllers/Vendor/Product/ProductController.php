@@ -9,6 +9,7 @@ use App\Contracts\Repositories\BusinessSettingRepositoryInterface;
 use App\Contracts\Repositories\CartRepositoryInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ColorRepositoryInterface;
+use App\Contracts\Repositories\ShapeRepositoryInterface;
 use App\Contracts\Repositories\DealOfTheDayRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductAuthorRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductVariationRepositoryInterface;
@@ -77,6 +78,7 @@ class ProductController extends BaseController
         private readonly TranslationRepository                      $translationRepo,
         private readonly BusinessSettingRepositoryInterface         $businessSettingRepo,
         private readonly ColorRepositoryInterface                   $colorRepo,
+        private readonly ShapeRepositoryInterface                   $shapeRepo,
         private readonly AttributeRepositoryInterface               $attributeRepo,
         private readonly ReviewRepositoryInterface                  $reviewRepo,
         private readonly CartRepositoryInterface                    $cartRepo,
@@ -204,6 +206,7 @@ class ProductController extends BaseController
         $brandSetting = getWebConfig(name: 'product_brand');
         $digitalProductSetting = getWebConfig(name: 'digital_product');
         $colors = $this->colorRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $languages = getWebConfig(name: 'pnc_language') ?? null;
         $defaultLanguage = $languages[0];
@@ -211,7 +214,7 @@ class ProductController extends BaseController
         $digitalProductAuthors = $this->authorRepo->getListWhere(dataLimit: 'all');
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
         $aiRemainingCount = $this->AIUsageManagerService->getGenerateRemainingCount();
-        return view('vendor-views.product.add-new', compact('languages', 'aiRemainingCount', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
+        return view('vendor-views.product.add-new', compact('languages', 'aiRemainingCount', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
     }
 
     public function add(ProductAddRequest $request, ProductService $service): JsonResponse|RedirectResponse
@@ -260,11 +263,13 @@ class ProductController extends BaseController
         $productPublishingHouseIds = $this->productService->getProductPublishingHouseInfo(product: $product)['ids'];
 
         $product['colors'] = json_decode($product['colors']);
+        $product['shapes'] = json_decode($product['shapes']) ?? [];
         $categories = $this->categoryRepo->getListWhere(filters: ['position' => 0], dataLimit: 'all');
         $brands = $this->brandRepo->getListWhere(filters: ['status' => 1], dataLimit: 'all');
         $brandSetting = getWebConfig(name: 'product_brand');
         $digitalProductSetting = getWebConfig(name: 'digital_product');
         $colors = $this->colorRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $languages = getWebConfig(name: 'pnc_language') ?? null;
         $defaultLanguage = $languages[0];
@@ -273,7 +278,7 @@ class ProductController extends BaseController
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
         $taxVatIds = $product?->taxVats?->pluck('tax_id')->toArray() ?? [];
         $aiRemainingCount = $this->AIUsageManagerService->getGenerateRemainingCount();
-        return view('vendor-views.product.edit', compact('product', 'categories','aiRemainingCount', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
+        return view('vendor-views.product.edit', compact('product', 'categories','aiRemainingCount', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
     }
 
     public function update(ProductUpdateRequest $request, ProductService $service, string|int $id): JsonResponse|RedirectResponse

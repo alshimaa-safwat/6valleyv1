@@ -5,6 +5,7 @@ let elementAdditionalImageColumn = $(".additional_image_column");
 let elementCustomUploadInputFileByID = $(".custom-upload-input-file");
 let elementDigitalProductTypeByID = $("#digital_product_type");
 let elementProductColorSwitcherByID = $("#product-color-switcher");
+let elementProductShapeSwitcherByID = $("#product-shape-switcher");
 let elementImagePathOfProductUploadIconByID = $(
     "#image-path-of-product-upload-icon"
 ).data("path");
@@ -63,6 +64,13 @@ $(document).on("ready", function() {
         $("#color-wise-image-area").hide();
     }
 
+    if ($("#product-shape-switcher").prop("checked")) {
+        $("#shape-wise-image-area").show();
+        shapeWiseImageFunctionality($("#shapes-selector"));
+    } else {
+        $("#shape-wise-image-area").hide();
+    }
+
     $(".color-var-select").select2({
         templateResult: colorCodeSelect,
         templateSelection: colorCodeSelect,
@@ -70,6 +78,8 @@ $(document).on("ready", function() {
             return m;
         }
     });
+
+    $(".shape-var-select").select2();
 
     function colorCodeSelect(state) {
         let colorCode = $(state.element).val();
@@ -135,6 +145,10 @@ elementProductColorSwitcherByID.on("click", function() {
     elementProductColorSwitcherByIDFunctionality();
 });
 
+elementProductShapeSwitcherByID.on("click", function() {
+    elementProductShapeSwitcherByIDFunctionality();
+});
+
 let pageLoadFirstTime = true;
 function elementProductColorSwitcherByIDFunctionality(action = null) {
     if (elementProductColorSwitcherByID.prop("checked")) {
@@ -167,6 +181,25 @@ function elementProductColorSwitcherByIDFunctionality(action = null) {
     }
 }
 
+function elementProductShapeSwitcherByIDFunctionality(action = null) {
+    if (elementProductShapeSwitcherByID.prop("checked")) {
+        $(".shape_image_column").removeClass("d-none");
+        $("#shape-wise-image-area").show();
+    } else {
+        let shapes = $("#shapes-selector");
+        shapes.val(null).trigger("change");
+
+        $(".shape_image_column").addClass("d-none");
+        $("#shape-wise-image-area").hide();
+    }
+
+    if (!$('input[name="shapes_active"]').is(":checked")) {
+        $("#shapes-selector").prop("disabled", true);
+    } else {
+        $("#shapes-selector").prop("disabled", false);
+    }
+}
+
 $(document).on("ready", function() {
     if (elementProductColorSwitcherByID.prop("checked")) {
         $(".color_image_column").removeClass("d-none");
@@ -179,6 +212,12 @@ $(document).on("ready", function() {
         elementAdditionalImageColumn.removeClass("col-md-12");
         $("#additional_Image_Section .col-md-4").removeClass("col-lg-2");
     }
+
+    if (elementProductShapeSwitcherByID.prop("checked")) {
+        $(".shape_image_column").removeClass("d-none");
+    } else {
+        $(".shape_image_column").addClass("d-none");
+    }
 });
 
 $('input[name="colors_active"]').on("change", function() {
@@ -186,6 +225,14 @@ $('input[name="colors_active"]').on("change", function() {
         $("#colors-selector").prop("disabled", true);
     } else {
         $("#colors-selector").prop("disabled", false);
+    }
+});
+
+$('input[name="shapes_active"]').on("change", function() {
+    if (!$('input[name="shapes_active"]').is(":checked")) {
+        $("#shapes-selector").prop("disabled", true);
+    } else {
+        $("#shapes-selector").prop("disabled", false);
     }
 });
 
@@ -207,6 +254,16 @@ $("#colors-selector").on("change", function() {
         $("#color-wise-image-area").show();
     } else {
         $("#color-wise-image-area").hide();
+    }
+});
+
+$("#shapes-selector").on("change", function() {
+    getUpdateSKUFunctionality();
+    if (elementProductShapeSwitcherByID.prop("checked")) {
+        shapeWiseImageFunctionality($("#shapes-selector"));
+        $("#shape-wise-image-area").show();
+    } else {
+        $("#shape-wise-image-area").hide();
     }
 });
 

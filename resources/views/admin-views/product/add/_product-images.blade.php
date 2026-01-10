@@ -87,6 +87,38 @@
             </div>
         </div>
 
+        <div class="col-md-9 shape_image_column d-none">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="form-group">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <div>
+                                <label for="name" class="form-label fw-bold mb-0">
+                                    {{ translate('shape_wise_product_image') }}
+                                    <span class="input-required-icon">*</span>
+                                </label>
+                                <span
+                                    class="badge badge-info text-bg-info">{{ THEME_RATIO[theme_root_path()]['Product Image'] }}</span>
+                                <span class="tooltip-icon cursor-pointer" data-bs-toggle="tooltip"
+                                      aria-label="{{ translate('add_shape-wise_product_images_here') }}."
+                                      data-bs-title="{{ translate('add_shape-wise_product_images_here') }}."
+                                >
+                                                <i class="fi fi-sr-info"></i>
+                                            </span>
+                            </div>
+
+                        </div>
+                        <p class="text-muted">
+                            {{ translate('must_upload_shape_wise_images_first.') }}
+                            {{ translate('Shape_is_shown_in_the_image_section_top_right') }}
+                        </p>
+
+                        <div id="shape-wise-image-section" class="d-flex justify-content-start flex-wrap gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-md-9 additional-image-column-section">
             <div class="item-2 h-100">
                 <div class="card h-100">

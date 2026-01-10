@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Enums\ViewPaths\Admin\Product;
 use App\Events\RestockProductNotificationEvent;
 use App\Models\Color;
+use App\Models\Shape;
 use App\Traits\FileManagerTrait;
 use Illuminate\Support\Str;
 use phpDocumentor\Reflection\Types\Boolean;
@@ -18,13 +19,15 @@ class ProductService
 {
     use FileManagerTrait;
 
-    public function __construct(private readonly Color $color)
-    {
-    }
+    public function __construct(
+        private readonly Color $color,
+        private readonly Shape $shape
+    ) {}
 
     public function getProcessedImages(object $request): array
     {
         $colorImageSerial = [];
+        $shapeImageSerial = [];
         $imageNames = [];
         $storage = config('filesystems.disks.default') ?? 'public';
         if ($request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0) {
@@ -50,6 +53,27 @@ class ProductService
                         'storage' => $storage,
                     ];
                     $imageNames[] = [
+                        'image_name' => $image,
+                        'storage' => $storage,
+                    ];
+                }
+            }
+        }
+        // Process shape images
+        if ($request->has('shapes_active') && $request->has('shapes') && count($request['shapes']) > 0) {
+            foreach ($request['shapes'] as $shape) {
+                $img = 'shape_image_' . $shape;
+                if ($request->file($img)) {
+                    $image = $this->upload(dir: 'product/', format: 'webp', image: $request->file($img));
+                    $shapeImageSerial[] = [
+                        'shape' => $shape,
+                        'image_name' => $image,
+                        'storage' => $storage,
+                    ];
+                } else if ($request->has($img)) {
+                    $image = $request->$img[0];
+                    $shapeImageSerial[] = [
+                        'shape' => $shape,
                         'image_name' => $image,
                         'storage' => $storage,
                     ];
@@ -88,9 +112,9 @@ class ProductService
         }
         return [
             'image_names' => $imageNames ?? [],
-            'colored_image_names' => $colorImageSerial ?? []
+            'colored_image_names' => $colorImageSerial ?? [],
+            'shaped_image_names' => $shapeImageSerial ?? []
         ];
-
     }
 
     public function getProcessedUpdateImages(object $request, object $product): array
@@ -236,9 +260,63 @@ class ProductService
         }
         $productImages = collect($productImages)->unique('image_name')->values()->toArray();
 
+        // Process shape images for update
+        $shapeImageArray = [];
+        $dbShapeImage = $product->shape_image ? json_decode($product->shape_image, true) : [];
+        if ($request->has('shapes_active') && $request->has('shapes') && count($request->shapes) > 0) {
+            $dbShapeImageFinal = [];
+            if ($dbShapeImage) {
+                foreach ($dbShapeImage as $shapeImage) {
+                    if ($shapeImage['shape']) {
+                        $dbShapeImageFinal[] = $shapeImage['shape'];
+                    }
+                }
+            }
+
+            $inputShapes = $request->shapes;
+            $shapeImageArray = $dbShapeImage;
+
+            foreach ($inputShapes as $shape) {
+                $image = 'shape_image_' . $shape;
+                if (!in_array($shape, $dbShapeImageFinal)) {
+                    if ($request->file($image)) {
+                        $imageName = $this->upload(dir: 'product/', format: 'webp', image: $request->file($image));
+                        $shapeImageArray[] = [
+                            'shape' => $shape,
+                            'image_name' => $imageName,
+                            'storage' => $storage,
+                        ];
+                    }
+                } else if ($dbShapeImage && in_array($shape, $dbShapeImageFinal) && $request->file($image)) {
+                    foreach ($dbShapeImage as $shapeImage) {
+                        if ($shapeImage['shape'] == $shape) {
+                            $this->delete(filePath: 'product/' . $shapeImage['image_name']);
+                            $imageName = $this->upload(dir: 'product/', format: 'webp', image: $request->file($image));
+
+                            $shapeImageArray = collect($shapeImageArray)->filter(function ($shapeItem) use ($shape) {
+                                return $shapeItem['shape'] != $shape;
+                            })->values()->toArray();
+
+                            $shapeImageArray[] = [
+                                'shape' => $shape,
+                                'image_name' => $imageName,
+                                'storage' => $storage,
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // Filter out shapes that are no longer selected
+            $shapeImageArray = collect($shapeImageArray)->filter(function ($shapeImage) use ($inputShapes) {
+                return in_array($shapeImage['shape'], $inputShapes);
+            })->values()->toArray();
+        }
+
         return [
             'image_names' => $productImages ?? [],
-            'colored_image_names' => $colorImageArray ?? []
+            'colored_image_names' => $colorImageArray ?? [],
+            'shaped_image_names' => $shapeImageArray ?? []
         ];
     }
 
@@ -276,6 +354,16 @@ class ProductService
         return $colors;
     }
 
+    public function getShapesObject(object $request): bool|string
+    {
+        if ($request->has('shapes_active') && $request->has('shapes') && count($request['shapes']) > 0) {
+            $shapes = $request['product_type'] == 'physical' ? json_encode($request['shapes']) : json_encode([]);
+        } else {
+            $shapes = json_encode([]);
+        }
+        return $shapes;
+    }
+
     public function getSlug(object $request): string
     {
         return Str::slug($request['name'][array_search('en', $request['lang'])], '-') . '-' . Str::random(6);
@@ -301,6 +389,9 @@ class ProductService
         $options = [];
         if ($request->has('colors_active') && $request->has('colors') && count($request->colors) > 0) {
             $options[] = $request->colors;
+        }
+        if ($request->has('shapes_active') && $request->has('shapes') && count($request->shapes) > 0) {
+            $options[] = $request->shapes;
         }
         if ($request->has('choice_no')) {
             foreach ($request->choice_no as $no) {
@@ -333,6 +424,7 @@ class ProductService
     public function getSkuCombinationView(object $request, object $product = null): string
     {
         $colorsActive = ($request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0) ? 1 : 0;
+        $shapesActive = ($request->has('shapes_active') && $request->has('shapes') && count($request['shapes']) > 0) ? 1 : 0;
         $unitPrice = $request['unit_price'];
         $productName = $request['name'][array_search('en', $request['lang'])];
         $options = $this->getOptions(request: $request);
@@ -350,25 +442,39 @@ class ProductService
             }
         }
         if ($product) {
-            return view(Product::SKU_EDIT_COMBINATION[VIEW], compact('combinations', 'unitPrice', 'colorsActive', 'productName'))->render();
+            return view(Product::SKU_EDIT_COMBINATION[VIEW], compact('combinations', 'unitPrice', 'colorsActive', 'shapesActive', 'productName'))->render();
         } else {
-            return view(Product::SKU_COMBINATION[VIEW], compact('combinations', 'unitPrice', 'colorsActive', 'productName'))->render();
+            return view(Product::SKU_COMBINATION[VIEW], compact('combinations', 'unitPrice', 'colorsActive', 'shapesActive', 'productName'))->render();
         }
     }
 
     public function getVariations(object $request, array $combinations): array
     {
         $variations = [];
+        $colorsActive = $request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0;
+        $shapesActive = $request->has('shapes_active') && $request->has('shapes') && count($request['shapes']) > 0;
+
         if (isset($combinations[0]) && count($combinations[0]) > 0) {
             foreach ($combinations as $combination) {
                 $str = '';
                 foreach ($combination as $combinationKey => $item) {
                     if ($combinationKey > 0) {
-                        $str .= '-' . str_replace(' ', '', $item);
+                        // Check if this is the shape position (when both colors and shapes are active)
+                        if ($colorsActive && $shapesActive && $combinationKey == 1) {
+                            $shapeModel = $this->shape->find($item);
+                            $shapeName = $shapeModel ? $shapeModel->name : str_replace(' ', '', $item);
+                            $str .= '-' . str_replace(' ', '', $shapeName);
+                        } else {
+                            $str .= '-' . str_replace(' ', '', $item);
+                        }
                     } else {
-                        if ($request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0) {
+                        if ($colorsActive) {
                             $color_name = $this->color->where('code', $item)->first()->name;
                             $str .= $color_name;
+                        } elseif ($shapesActive) {
+                            // Shape is first when no colors
+                            $shapeModel = $this->shape->find($item);
+                            $str .= $shapeModel ? $shapeModel->name : str_replace(' ', '', $item);
                         } else {
                             $str .= str_replace(' ', '', $item);
                         }
@@ -479,7 +585,7 @@ class ProductService
         $processedImages = $this->getProcessedImages(request: $request); //once the images are processed do not call this function again just use the variable
         $combinations = $this->getCombinations($this->getOptions(request: $request));
         $variations = $this->getVariations(request: $request, combinations: $combinations);
-        $stockCount = isset($combinations[0]) && count($combinations[0]) > 0 ? $this->getTotalQuantity(variations: $variations) : (integer)$request['current_stock'];
+        $stockCount = isset($combinations[0]) && count($combinations[0]) > 0 ? $this->getTotalQuantity(variations: $variations) : (int)$request['current_stock'];
 
         $digitalFile = '';
         if ($request['product_type'] == 'digital' && $request['digital_product_type'] == 'ready_product' && $request['digital_file_ready']) {
@@ -505,7 +611,7 @@ class ProductService
             'category_id' => $request['category_id'],
             'sub_category_id' => $request['sub_category_id'],
             'sub_sub_category_id' => $request['sub_sub_category_id'],
-            'brand_id' => $request['product_type'] == "physical" ? ( $request['brand_id'] ?? null) : null,
+            'brand_id' => $request['product_type'] == "physical" ? ($request['brand_id'] ?? null) : null,
             'unit' => $request['product_type'] == 'physical' ? $request['unit'] : null,
             'weight' => $request['product_type'] == 'physical' ? $request['weight'] : null,
             'digital_product_type' => $request['product_type'] == 'digital' ? $request['digital_product_type'] : null,
@@ -514,6 +620,7 @@ class ProductService
             'product_type' => $request['product_type'],
             'details' => $request['description'][array_search('en', $request['lang'])],
             'colors' => $this->getColorsObject(request: $request),
+            'shapes' => $this->getShapesObject(request: $request),
             'choice_options' => $request['product_type'] == 'physical' ? json_encode($this->getChoiceOptions(request: $request)) : json_encode([]),
             'variation' => $request['product_type'] == 'physical' ? json_encode($variations) : json_encode([]),
             'digital_product_file_types' => $request->has('extensions_type') ? $request->get('extensions_type') : [],
@@ -535,6 +642,7 @@ class ProductService
             'shipping_cost' => $request['product_type'] == 'physical' ? currencyConverter(amount: $request['shipping_cost']) : 0,
             'multiply_qty' => ($request['product_type'] == 'physical') ? ($request['multiply_qty'] == 'on' ? 1 : 0) : 0, //to be changed in form multiply_qty
             'color_image' => json_encode($processedImages['colored_image_names']),
+            'shape_image' => json_encode($processedImages['shaped_image_names']),
             'images' => json_encode($processedImages['image_names']),
             'thumbnail' => $request->has('image') ? $this->upload(dir: 'product/thumbnail/', format: 'webp', image: $request['image']) : $request->existing_thumbnail,
             'thumbnail_storage_type' => $request->has('image') ? $storage : null,
@@ -552,7 +660,7 @@ class ProductService
         $processedImages = $this->getProcessedUpdateImages(request: $request, product: $product);
         $combinations = $this->getCombinations($this->getOptions(request: $request));
         $variations = $this->getVariations(request: $request, combinations: $combinations);
-        $stockCount = isset($combinations[0]) && count($combinations[0]) > 0 ? $this->getTotalQuantity(variations: $variations) : (integer)$request['current_stock'];
+        $stockCount = isset($combinations[0]) && count($combinations[0]) > 0 ? $this->getTotalQuantity(variations: $variations) : (int)$request['current_stock'];
 
         if ($request->has('extensions_type') && $request->has('digital_product_variant_key')) {
             $digitalFile = null;
@@ -588,6 +696,7 @@ class ProductService
             'digital_product_type' => $request['product_type'] == 'digital' ? $request['digital_product_type'] : null,
             'details' => $request['description'][array_search('en', $request['lang'])],
             'colors' => $this->getColorsObject(request: $request),
+            'shapes' => $this->getShapesObject(request: $request),
             'choice_options' => $request['product_type'] == 'physical' ? json_encode($this->getChoiceOptions(request: $request)) : json_encode([]),
             'variation' => $request['product_type'] == 'physical' ? json_encode($variations) : json_encode([]),
             'digital_product_file_types' => $request->has('extensions_type') ? $request->get('extensions_type') : [],
@@ -606,6 +715,7 @@ class ProductService
             'video_url' => $request['video_url'],
             'multiply_qty' => ($request['product_type'] == 'physical') ? ($request['multiply_qty'] == 'on' ? 1 : 0) : 0,
             'color_image' => json_encode($processedImages['colored_image_names']),
+            'shape_image' => json_encode($processedImages['shaped_image_names']),
             'images' => json_encode($processedImages['image_names']),
             'digital_file_ready' => $digitalFile,
             'digital_file_ready_storage_type' => $request->has('digital_file_ready') ? $storage : $product['digital_file_ready_storage_type'],
@@ -675,88 +785,153 @@ class ProductService
             return [
                 'status' => false,
                 'message' => translate('you_have_uploaded_a_wrong_format_file') . ',' . translate('please_upload_the_right_file'),
-                'products' => []
+                'products' => [],
+                'translations' => []
             ];
         }
 
-        $columnKey = [
-            'name',
+        // Base required columns
+        $baseColumns = [
             'category_id',
-            'sub_category_id',
-            'sub_sub_category_id',
-            'brand_id', 'unit',
+            'unit',
+            'product_type',
             'minimum_order_qty',
             'status',
             'refundable',
-            'youtube_video_url',
             'unit_price',
             'tax_ids',
             'discount',
             'discount_type',
             'current_stock',
-            'details',
-            'thumbnail'
         ];
-        $skip = ['sub_category_id', 'sub_sub_category_id', 'brand_id', 'youtube_video_url', 'details', 'thumbnail'];
+
+        // Optional columns
+        $optionalColumns = [
+            'sub_category_id',
+            'sub_sub_category_id',
+            'brand_id',
+            'weight',
+            'digital_product_type',
+            'featured',
+            'youtube_video_url',
+            'purchase_price',
+            'shipping_cost',
+            'multiply_qty',
+            'thumbnail',
+            'free_shipping'
+        ];
+
+        // Translatable field patterns (will be discovered automatically)
+        $translatablePatterns = ['name', 'description', 'meta_title', 'meta_description'];
 
         if (count($collections) <= 0) {
             return [
                 'status' => false,
                 'message' => translate('you_need_to_upload_with_proper_data'),
-                'products' => []
+                'products' => [],
+                'translations' => []
             ];
         }
 
         $products = [];
         $productsTax = [];
+        $productsTranslations = [];
+
         foreach ($collections as $collection) {
+            // Auto-discover translation columns
+            $discoveredColumns = [];
+            $translationFields = [];
+
             foreach ($collection as $key => $value) {
-                if ($key != "" && !in_array($key, $columnKey)) {
-                    return [
-                        'status' => false,
-                        'message' => translate('Please_upload_the_correct_format_file'),
-                        'products' => []
-                    ];
+                if ($key == "") continue;
+
+                // Check if it's a translatable field (e.g., name_en, description_ar, name_iq)
+                $isTranslatable = false;
+                foreach ($translatablePatterns as $pattern) {
+                    if (preg_match('/^' . $pattern . '_([a-z]{2,3})$/i', $key, $matches)) {
+                        $locale = strtolower($matches[1]);
+                        $fieldType = $pattern;
+                        $translationFields[$fieldType][$locale] = $value;
+                        $discoveredColumns[] = $key;
+                        $isTranslatable = true;
+                        break;
+                    }
                 }
 
-                if ($key != "" && $value === "" && !in_array($key, $skip)) {
+                // Check if it's a base or optional column
+                if (!$isTranslatable) {
+                    if (!in_array($key, $baseColumns) && !in_array($key, $optionalColumns)) {
+                        return [
+                            'status' => false,
+                            'message' => translate('Please_upload_the_correct_format_file') . ' - Invalid column: ' . $key,
+                            'products' => [],
+                            'translations' => []
+                        ];
+                    }
+                    $discoveredColumns[] = $key;
+                }
+            }
+
+            // Validate required fields
+            foreach ($baseColumns as $requiredColumn) {
+                if (!isset($collection[$requiredColumn]) || $collection[$requiredColumn] === '') {
                     return [
                         'status' => false,
-                        'message' => translate('Please fill ' . $key . ' fields'),
-                        'products' => []
+                        'message' => translate('Please fill ' . $requiredColumn . ' fields'),
+                        'products' => [],
+                        'translations' => []
                     ];
                 }
             }
-            $thumbnail = explode('/', $collection['thumbnail']);
 
+            // Check for name_en (required)
+            if (!isset($translationFields['name']['en']) || empty($translationFields['name']['en'])) {
+                return [
+                    'status' => false,
+                    'message' => translate('name_en is required for all products'),
+                    'products' => [],
+                    'translations' => []
+                ];
+            }
+
+            $thumbnail = explode('/', $collection['thumbnail'] ?? 'def.png');
             $productCode = self::getUniqueProductSKUCode();
-
-            $productsTax[$productCode] = $collection['tax_ids'];
+            $productsTax[$productCode] = $collection['tax_ids'] ?? '';
 
             $products[] = [
-                'name' => $collection['name'],
+                'name' => $translationFields['name']['en'] ?? '',
                 'shop_id' => $shopId,
-                'slug' => Str::slug($collection['name'], '-') . '-' . Str::random(6),
-                'category_ids' => json_encode([['id' => (string)$collection['category_id'], 'position' => 1], ['id' => (string)$collection['sub_category_id'], 'position' => 2], ['id' => (string)$collection['sub_sub_category_id'], 'position' => 3]]),
-                'category_id' => $collection['category_id'],
-                'sub_category_id' => $collection['sub_category_id'],
-                'sub_sub_category_id' => $collection['sub_sub_category_id'],
-                'brand_id' => $collection['brand_id'],
-                'unit' => $collection['unit'],
-                'minimum_order_qty' => $collection['minimum_order_qty'],
-                'refundable' => $collection['refundable'],
-                'unit_price' => currencyConverter(amount: $collection['unit_price']),
-                'purchase_price' => 0,
-                'discount' => $collection['discount_type'] == 'flat' ? currencyConverter(amount: $collection['discount']) : $collection['discount'],
-                'discount_type' => $collection['discount_type'],
-                'shipping_cost' => 0,
-                'current_stock' => $collection['current_stock'],
-                'details' => $collection['details'],
+                'slug' => Str::slug($translationFields['name']['en'] ?? 'product', '-') . '-' . Str::random(6),
+                'category_ids' => json_encode([
+                    ['id' => (string)($collection['category_id'] ?? ''), 'position' => 1],
+                    ['id' => (string)($collection['sub_category_id'] ?? ''), 'position' => 2],
+                    ['id' => (string)($collection['sub_sub_category_id'] ?? ''), 'position' => 3]
+                ]),
+                'category_id' => $collection['category_id'] ?? null,
+                'sub_category_id' => $collection['sub_category_id'] ?? null,
+                'sub_sub_category_id' => $collection['sub_sub_category_id'] ?? null,
+                'brand_id' => $collection['brand_id'] ?? null,
+                'unit' => $collection['unit'] ?? 'pc',
+                'weight' => $collection['weight'] ?? null,
+                'product_type' => $collection['product_type'] ?? 'physical',
+                'digital_product_type' => $collection['digital_product_type'] ?? null,
+                'minimum_order_qty' => $collection['minimum_order_qty'] ?? 1,
+                'refundable' => $collection['refundable'] ?? 0,
+                'featured' => $collection['featured'] ?? 0,
+                'free_shipping' => $collection['free_shipping'] ?? 0,
+                'unit_price' => currencyConverter(amount: $collection['unit_price'] ?? 0),
+                'purchase_price' => currencyConverter(amount: $collection['purchase_price'] ?? 0),
+                'discount' => ($collection['discount_type'] ?? 'flat') == 'flat' ? currencyConverter(amount: $collection['discount'] ?? 0) : ($collection['discount'] ?? 0),
+                'discount_type' => $collection['discount_type'] ?? 'flat',
+                'shipping_cost' => currencyConverter(amount: $collection['shipping_cost'] ?? 0),
+                'multiply_qty' => $collection['multiply_qty'] ?? 0,
+                'current_stock' => $collection['current_stock'] ?? 0,
+                'details' => $translationFields['description']['en'] ?? '',
                 'video_provider' => 'youtube',
-                'video_url' => $collection['youtube_video_url'],
+                'video_url' => $collection['youtube_video_url'] ?? null,
                 'images' => json_encode(['def.png']),
                 'thumbnail' => $thumbnail[1] ?? $thumbnail[0],
-                'status' => $addedBy == 'admin' && $collection['status'] == 1 ? 1 : 0,
+                'status' => $addedBy == 'admin' && ($collection['status'] ?? 0) == 1 ? 1 : 0,
                 'request_status' => $addedBy == 'admin' ? 1 : (getWebConfig(name: 'new_product_approval') == 1 ? 0 : 1),
                 'colors' => json_encode([]),
                 'attributes' => json_encode([]),
@@ -767,7 +942,11 @@ class ProductService
                 'user_id' => $addedBy == 'admin' ? auth('admin')->id() : auth('seller')->id(),
                 'code' => $productCode,
                 'created_at' => now(),
+                'updated_at' => now(),
             ];
+
+            // Store all discovered translations for this product
+            $productsTranslations[$productCode] = $translationFields;
         }
 
         return [
@@ -775,6 +954,7 @@ class ProductService
             'message' => count($products) . ' - ' . translate('products_imported_successfully'),
             'products' => $products,
             'productsTax' => $productsTax,
+            'translations' => $productsTranslations,
         ];
     }
 
@@ -824,6 +1004,9 @@ class ProductService
         $generateCombination = [];
         $existingType = [];
 
+        $colorsActive = $request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0;
+        $shapesActive = $request->has('shapes_active') && $request->has('shapes') && count($request['shapes']) > 0;
+
         if ($product && $product->variation && count(json_decode($product->variation, true)) > 0) {
             foreach (json_decode($product->variation, true) as $digitalVariation) {
                 $existingType[] = $digitalVariation['type'];
@@ -838,15 +1021,41 @@ class ProductService
 
         foreach ($combinations as $combination) {
             $type = '';
+            $optionIndex = 0;
+
             foreach ($combination as $combinationKey => $item) {
                 if ($combinationKey > 0) {
                     $type .= '-' . str_replace(' ', '', $item);
                 } else {
-                    if ($request->has('colors_active') && $request->has('colors') && count($request['colors']) > 0) {
-                        $color_name = $this->color->where('code', $item)->first()->name;
-                        $type .= $color_name;
+                    // First option - check if it's color
+                    if ($colorsActive) {
+                        $color = $this->color->where('code', $item)->first();
+                        $type .= $color ? $color->name : str_replace(' ', '', $item);
+                    } elseif ($shapesActive) {
+                        // If no colors but shapes active, first option is shape
+                        $shapeModel = $this->shape->find($item);
+                        $type .= $shapeModel ? $shapeModel->name : str_replace(' ', '', $item);
                     } else {
                         $type .= str_replace(' ', '', $item);
+                    }
+                }
+                $optionIndex++;
+            }
+
+            // Handle shape in second position when both colors and shapes are active
+            if ($colorsActive && $shapesActive && isset($combination[1])) {
+                // Rebuild type with shape name
+                $type = '';
+                foreach ($combination as $combinationKey => $item) {
+                    if ($combinationKey == 0) {
+                        $color = $this->color->where('code', $item)->first();
+                        $type .= $color ? $color->name : str_replace(' ', '', $item);
+                    } elseif ($combinationKey == 1) {
+                        $shapeModel = $this->shape->find($item);
+                        $shapeName = $shapeModel ? $shapeModel->name : str_replace(' ', '', $item);
+                        $type .= '-' . str_replace(' ', '', $shapeName);
+                    } else {
+                        $type .= '-' . str_replace(' ', '', $item);
                     }
                 }
             }

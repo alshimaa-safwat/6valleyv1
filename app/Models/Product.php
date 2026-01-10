@@ -85,6 +85,7 @@ class Product extends Model
         'product_type',
         'details',
         'colors',
+        'shapes',
         'choice_options',
         'variation',
         'digital_product_file_types',
@@ -109,6 +110,7 @@ class Product extends Model
         'shipping_cost',
         'multiply_qty',
         'color_image',
+        'shape_image',
         'images',
         'thumbnail',
         'thumbnail_storage_type',
@@ -178,7 +180,7 @@ class Product extends Model
         'digital_file_ready_storage_type' => 'string',
     ];
 
-    protected $appends = ['is_shop_temporary_close', 'thumbnail_full_url', 'preview_file_full_url', 'color_images_full_url', 'meta_image_full_url', 'images_full_url', 'digital_file_ready_full_url'];
+    protected $appends = ['is_shop_temporary_close', 'thumbnail_full_url', 'preview_file_full_url', 'color_images_full_url', 'shape_images_full_url', 'meta_image_full_url', 'images_full_url', 'digital_file_ready_full_url'];
 
     public function translations(): MorphMany
     {
@@ -427,6 +429,22 @@ class Product extends Model
                 $item = (array)$item;
                 $images[] = [
                     'color' => $item['color'],
+                    'image_name' => $this->storageLink('product', $item['image_name'], $item['storage'] ?? 'public')
+                ];
+            }
+        }
+        return $images;
+    }
+
+    public function getShapeImagesFullUrlAttribute(): array
+    {
+        $images = [];
+        $value = is_array($this->shape_image) ? $this->shape_image : json_decode($this->shape_image);
+        if ($value) {
+            foreach ($value as $item) {
+                $item = (array)$item;
+                $images[] = [
+                    'shape' => $item['shape'],
                     'image_name' => $this->storageLink('product', $item['image_name'], $item['storage'] ?? 'public')
                 ];
             }

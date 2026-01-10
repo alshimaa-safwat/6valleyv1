@@ -63,6 +63,18 @@ class CartController extends Controller
             $string = Color::where('code', $request['color'])->first()->name;
         }
 
+        // Add shape to variant string
+        if ($request->has('shape') && $request['shape']) {
+            $shape = \App\Models\Shape::find($request['shape']);
+            if ($shape) {
+                if ($string != null) {
+                    $string .= '-' . str_replace(' ', '', $shape->name);
+                } else {
+                    $string .= $shape->name;
+                }
+            }
+        }
+
         foreach (json_decode(Product::find($request->id)->choice_options) as $key => $choice) {
             if ($string != null) {
                 $string .= '-' . str_replace(' ', '', $request[$choice->name]);

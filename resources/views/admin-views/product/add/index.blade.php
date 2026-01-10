@@ -72,10 +72,10 @@
     <script src="{{ dynamicAsset(path: 'public/assets/back-end/libs/quill-editor/quill-editor.js') }}"></script>
     <script src="{{ dynamicAsset(path: 'public/assets/back-end/libs/quill-editor/quill-editor-init.js') }}"></script>
 
-    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update-utils.js') }}"></script>
-    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update.js') }}"></script>
-    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update-ajax.js') }}"></script>
-    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-colors-img.js') }}"></script>
+    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update-utils2.js') }}"></script>
+    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update2.js') }}"></script>
+    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-update-ajax2.js') }}"></script>
+    <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/products/product-add-colors-img2.js') }}"></script>
 
     <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/AI/products/product-title-autofill.js') }}"></script>
     <script src="{{ dynamicAsset(path: 'public/assets/backend/admin/js/AI/products/product-title-autofill.js') }}"></script>

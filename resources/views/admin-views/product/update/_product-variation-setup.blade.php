@@ -1,17 +1,19 @@
 <div class="variation_wrapper mt-3 physical_product_show">
     <div class="outline-wrapper">
         <div class="card rest-part show-for-physical-product bg-animate">
-            <div class="card-header d-flex justify-content-between align-items-center pc-header-ai-btn" >
+            <div class="card-header d-flex justify-content-between align-items-center pc-header-ai-btn">
                 <div class="d-flex align-items-center gap-2">
                     <i class="fi fi-sr-user"></i>
                     <h3 class="mb-0">{{ translate('product_variation_setup') }}</h3>
                 </div>
                 <button type="button"
                     class="btn bg-white text-primary bg-transparent shadow-none border-0 opacity-1 generate_btn_wrapper p-0 variation_setup_auto_fill"
-                    id="variation_setup_auto_fill" data-route="{{ route('admin.product.variation-setup-auto-fill') }}" data-lang="en">
+                    id="variation_setup_auto_fill" data-route="{{ route('admin.product.variation-setup-auto-fill') }}"
+                    data-lang="en">
                     <div class="btn-svg-wrapper">
                         <img width="18" height="18" class=""
-                            src="{{ dynamicAsset(path: 'public/assets//back-end/img/ai/blink-right-small.svg') }}" alt="">
+                            src="{{ dynamicAsset(path: 'public/assets//back-end/img/ai/blink-right-small.svg') }}"
+                            alt="">
                     </div>
                     <span class="ai-text-animation d-none" role="status">
                         {{ translate('Just_a_second') }}
@@ -27,18 +29,39 @@
                                 {{ translate('select_colors') }} :
                             </label>
                             <label class="switcher">
-                                <input type="checkbox" class="switcher_input" id="product-color-switcher"
-                                       value="1" {{ count($product['colors']) > 0 ? 'checked' : '' }}
-                                       name="colors_active">
+                                <input type="checkbox" class="switcher_input" id="product-color-switcher" value="1"
+                                    {{ count($product['colors']) > 0 ? 'checked' : '' }} name="colors_active">
                                 <span class="switcher_control"></span>
                             </label>
                         </div>
                         <select class="custom-select color-var-select" name="colors[]" multiple="multiple"
-                                id="colors-selector-input" {{ count($product['colors']) > 0 ? '' : 'disabled' }}>
+                            id="colors-selector-input" {{ count($product['colors'] ?? []) > 0 ? '' : 'disabled' }}>
                             @foreach ($colors as $color)
                                 <option value="{{ $color->code }}" data-color="{{ $color->code }}"
-                                    {{ in_array($color->code,$product['colors']) ? 'selected' : '' }}>
+                                    {{ in_array($color->code, $product['colors'] ?? []) ? 'selected' : '' }}>
                                     {{ $color['name'] }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3 d-flex align-items-center gap-2">
+                            <label for="shapes" class="text-dark mb-0">
+                                {{ translate('select_shapes') }} :
+                            </label>
+                            <label class="switcher">
+                                <input type="checkbox" class="switcher_input" id="product-shape-switcher" value="1"
+                                    {{ count($product['shapes'] ?? []) > 0 ? 'checked' : '' }} name="shapes_active">
+                                <span class="switcher_control"></span>
+                            </label>
+                        </div>
+                        <select class="custom-select shape-var-select" name="shapes[]" multiple="multiple"
+                            id="shapes-selector-input" {{ count($product['shapes'] ?? []) > 0 ? '' : 'disabled' }}>
+                            @foreach ($shapes as $shape)
+                                <option value="{{ $shape->id }}"
+                                    {{ in_array($shape->id, $product['shapes'] ?? []) ? 'selected' : '' }}>
+                                    {{ $shape['name'] }}
                                 </option>
                             @endforeach
                         </select>
@@ -48,15 +71,14 @@
                         <label for="product-choice-attributes" class="form-label">
                             {{ translate('select_attributes') }} :
                         </label>
-                        <select class="custom-select"
-                                name="choice_attributes[]" id="product-choice-attributes" multiple="multiple"
-                                data-placeholder="{{ translate('choose_attributes') }}">
+                        <select class="custom-select" name="choice_attributes[]" id="product-choice-attributes"
+                            multiple="multiple" data-placeholder="{{ translate('choose_attributes') }}">
                             <option></option>
                             @foreach ($attributes as $key => $attribute)
-                                @if($product['attributes']!='null')
+                                @if ($product['attributes'] != 'null')
                                     <option value="{{ $attribute['id'] }}"
                                         {{ in_array($attribute->id, json_decode($product['attributes'], true)) ? 'selected' : '' }}>
-                                        {{ $attribute['name']}}
+                                        {{ $attribute['name'] }}
                                     </option>
                                 @else
                                     <option value="{{ $attribute['id'] }}">{{ $attribute['name'] }}</option>
@@ -66,16 +88,17 @@
                     </div>
 
                     <div class="col-md-12 mt-2 mb-2">
-                        <div class="row customer-choice-options-container mt-0 mb-4 gy-4 " id="customer-choice-options-container">
+                        <div class="row customer-choice-options-container mt-0 mb-4 gy-4 "
+                            id="customer-choice-options-container">
                             @include('admin-views.product.partials._choices', [
                                 'choice_no' => json_decode($product['attributes']),
-                                'choice_options' => json_decode($product['choice_options'],true)
+                                'choice_options' => json_decode($product['choice_options'], true),
                             ])
                         </div>
 
                         <div class="sku_combination table-responsive form-group mt-2" id="sku_combination">
                             @include('admin-views.product.partials._edit-sku-combinations', [
-                                'combinations' => json_decode($product['variation'], true)
+                                'combinations' => json_decode($product['variation'], true),
                             ])
                         </div>
                     </div>
@@ -98,8 +121,8 @@
                 <div class="multi--select">
                     <label class="form-label">{{ translate('File_Type') }}</label>
                     <select class="custom-select" name="file-type" multiple id="digital-product-type-select">
-                        @foreach($digitalProductFileTypes as $FileType)
-                            @if($product->digital_product_file_types)
+                        @foreach ($digitalProductFileTypes as $FileType)
+                            @if ($product->digital_product_file_types)
                                 <option value="{{ $FileType }}"
                                     {{ in_array($FileType, $product->digital_product_file_types) ? 'selected' : '' }}>
                                     {{ translate($FileType) }}
@@ -111,33 +134,27 @@
                     </select>
                 </div>
             </div>
-            @if($product->digital_product_file_types && count($product->digital_product_file_types) > 0)
-                @foreach($product->digital_product_file_types as $digitalProductFileTypes)
+            @if ($product->digital_product_file_types && count($product->digital_product_file_types) > 0)
+                @foreach ($product->digital_product_file_types as $digitalProductFileTypes)
                     <div class="col-sm-6 col-md-4 col-xxl-3 extension-choice-section">
                         <div class="form-group">
-                            <input type="hidden" name="extensions_type[]"
-                                   value="{{ $digitalProductFileTypes }}">
+                            <input type="hidden" name="extensions_type[]" value="{{ $digitalProductFileTypes }}">
                             <label class="form-label">
                                 {{ $digitalProductFileTypes }}
                             </label>
-                            <input type="text" name="extensions[]" value="{{ $digitalProductFileTypes }}"
-                                   hidden>
+                            <input type="text" name="extensions[]" value="{{ $digitalProductFileTypes }}" hidden>
                             <div class="">
-                                @if($product->digital_product_extensions && isset($product->digital_product_extensions[$digitalProductFileTypes]))
+                                @if ($product->digital_product_extensions && isset($product->digital_product_extensions[$digitalProductFileTypes]))
                                     <input type="text" class="form-control"
-                                           name="extensions_options_{{ $digitalProductFileTypes }}[]"
-                                           placeholder="{{ translate('enter_choice_values') }}"
-                                           data-role="tagsinput"
-                                           value="@foreach($product->digital_product_extensions[$digitalProductFileTypes] as $extensions){{ $extensions.','}}@endforeach"
-                                           onchange="getUpdateDigitalVariationFunctionality()"
-                                    >
+                                        name="extensions_options_{{ $digitalProductFileTypes }}[]"
+                                        placeholder="{{ translate('enter_choice_values') }}" data-role="tagsinput"
+                                        value="@foreach ($product->digital_product_extensions[$digitalProductFileTypes] as $extensions){{ $extensions . ',' }} @endforeach"
+                                        onchange="getUpdateDigitalVariationFunctionality()">
                                 @else
                                     <input type="text" class="form-control"
-                                           name="extensions_options_{{ $digitalProductFileTypes }}[]"
-                                           placeholder="{{ translate('enter_choice_values') }}"
-                                           data-role="tagsinput"
-                                           onchange="getUpdateDigitalVariationFunctionality()"
-                                    >
+                                        name="extensions_options_{{ $digitalProductFileTypes }}[]"
+                                        placeholder="{{ translate('enter_choice_values') }}" data-role="tagsinput"
+                                        onchange="getUpdateDigitalVariationFunctionality()">
                                 @endif
                             </div>
                         </div>

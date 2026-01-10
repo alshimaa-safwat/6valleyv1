@@ -89,6 +89,38 @@
             </div>
         </div>
 
+        <div class="col-md-9 shape_image_column {{ count($product['shapes'] ?? []) > 0 ? '' : 'd-none' }}">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="form-group">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <div>
+                                <label for="name" class="form-label fw-bold mb-0">
+                                    {{ translate('shape_wise_product_image') }}
+                                    <span class="input-required-icon">*</span>
+                                </label>
+                                <span class="badge badge-info text-bg-info">
+                                    {{ THEME_RATIO[theme_root_path()]['Product Image'] }}
+                                </span>
+                                <span class="tooltip-icon cursor-pointer" data-bs-toggle="tooltip"
+                                    aria-label="{{ translate('add_shape-wise_product_images_here') }}."
+                                    data-bs-title="{{ translate('add_shape-wise_product_images_here') }}.">
+                                    <i class="fi fi-sr-info"></i>
+                                </span>
+                            </div>
+
+                        </div>
+                        <p class="text-muted">
+                            {{ translate('must_upload_shape_wise_images_first.') }}
+                            {{ translate('Shape_is_shown_in_the_image_section_top_right') }}
+                        </p>
+
+                        <div id="shape-wise-image-section" class="d-flex justify-content-start flex-wrap gap-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div
             class="additional-image-column-section {{ $product['product_type'] == 'digital' ? 'col-md-6' : 'col-md-9' }}">
             <div class="item-2 h-100">
@@ -340,10 +372,13 @@
     </div>
     <input type="hidden" id="color_image" value="{{ json_encode($product->color_images_full_url) }}">
     <input type="hidden" id="color_image_json" value="{{ json_encode($product->color_images_full_url) }}">
+    <input type="hidden" id="shape_image" value="{{ json_encode($product->shape_images_full_url) }}">
+    <input type="hidden" id="shape_image_json" value="{{ json_encode($product->shape_images_full_url) }}">
     <input type="hidden" id="images" value="{{ json_encode($product->images_full_url) }}">
     <input type="hidden" id="images_json" value="{{ json_encode($product->images_full_url) }}">
     <input type="hidden" id="product_id" name="product_id" value="{{ $product->id }}">
     <input type="hidden" id="remove_url" value="{{ route('admin.products.delete-image') }}">
+    <input type="hidden" id="remove_shape_url" value="{{ route('admin.products.delete-image') }}">
     @if (request('product-gallery'))
         <input type="hidden" id="clone-product-gallery" value="1">
     @endif

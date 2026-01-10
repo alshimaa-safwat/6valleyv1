@@ -297,6 +297,19 @@
                                         </select>
                                     </div>
                                 </div>
+                                <div class="col-md-6 col-lg-4 col-xl-3 physical_product_show">
+                                    <div class="form-group">
+                                        <label class="title-color">
+                                            {{ translate('Weight (kg)') }}
+                                            <span class="input-required-icon">*</span>
+                                        </label>
+                                        <input type="number" step="0.01" min="0" name="weight" id="weight" class="form-control"
+                                            value="{{ $product['weight'] ?? old('weight') }}" placeholder="{{ translate('Enter weight in kg') }}">
+                                        @error('weight')
+                                            <div class="text-danger">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                                 <div class="col-md-9">
                                     <div class="form-group">
                                         <label class="title-color d-flex align-items-center gap-2">
@@ -634,6 +647,33 @@
 
                                 <div class="col-md-6">
                                     <div class="form-group">
+                                        <div class="mb-3 d-flex align-items-center gap-2">
+                                            <label class="mb-0 title-color">
+                                                {{ translate('select_shapes') }} :
+                                            </label>
+                                            <label class="switcher">
+                                                <input type="checkbox" class="switcher_input" id="product-shape-switcher"
+                                                       name="shapes_active" value="1" {{count($product['shapes'])>0?'checked':''}}>
+                                                <span class="switcher_control"></span>
+                                            </label>
+                                        </div>
+
+                                        <select
+                                            class="js-example-basic-multiple js-states js-example-responsive form-control shape-var-select"
+                                            name="shapes[]" multiple="multiple"
+                                            id="shapes-selector" {{ count($product['shapes'])>0?'':'disabled' }}>
+                                            @foreach ($shapes as $key => $shape)
+                                                <option
+                                                    value="{{ $shape->id }}" {{in_array($shape->id,$product['shapes'])?'selected':''}}>
+                                                    {{ $shape['name'] }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-group">
                                         <label for="product-choice-attributes" class="pb-1 title-color">
                                             {{ translate('select_attributes') }} :
                                         </label>
@@ -747,6 +787,32 @@
                                     </div>
                                     <div class="col-12">
                                         <div class="row g-2" id="color-wise-image-section"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="item-2 shape_image_column d-none">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <label for="name"
+                                           class="title-color text-capitalize font-weight-bold mb-0">{{ translate('shape_wise_product_image') }}</label>
+                                    <span class="input-label-secondary cursor-pointer" data-toggle="tooltip"
+                                          title="{{ translate('add_shape_wise_product_images_here') }}.">
+                                        <img src="{{ dynamicAsset(path: 'public/assets/back-end/img/info-circle.svg') }}" alt="">
+                                    </span>
+                                </div>
+                                <p class="text-muted">{{ translate('must_upload_shape_wise_images_first') }} {{ translate('shape_is_shown_in_the_image_section_top_right.') }} </p>
+
+                                <div id="shape-wise-image-area" class="row g-2 mb-4">
+                                    <div class="col-12">
+                                        <div class="row g-2" id="shape_wise_existing_image"></div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="row g-2" id="shape-wise-image-section"></div>
                                     </div>
                                 </div>
 

@@ -128,3 +128,114 @@ function uploadColorImage(thisData = null) {
         }
     }
 }
+
+// Shape-wise image functionality
+function shapeWiseImageFunctionality(t) {
+    let shapes = t.val();
+    let product_id = $('#product_id').val();
+    let clickToUpload = $('#message-click-to-upload').data('text') ?? 'Click to upload';
+    let dragAndDrop = $('#message-drag-and-drop').data('text') ?? 'Or drag and drop';
+    let remove_url = $('#remove_shape_url').val();
+    let mergedShapes = {};
+    let shapeObject = {};
+    let shapeImageObject = {};
+
+    if (!shapes || shapes.length === 0) {
+        $("#shape-wise-image-section").empty().html("");
+        $(".shape_image_column").addClass("d-none");
+        return;
+    }
+
+    $(".shape_image_column").removeClass("d-none");
+
+    shapes.forEach(function(item) {
+        shapeObject[item] = {'shape' : item, 'image_name' : {}};
+    });
+
+    let shapeImageJson = $("#shape_image_json");
+    if (shapeImageJson.length) {
+        let shapeImageJsonValue = $('#shape_image_json').val();
+        shapeImageJsonValue = shapeImageJsonValue ? $.parseJSON(shapeImageJsonValue) : [];
+        $.each(shapeImageJsonValue, function (index, item) {
+            if (item.shape) {
+                shapeImageObject[item.shape] = item;
+            }
+        });
+    }
+
+    for (let shape in shapeObject) {
+        mergedShapes[shape] = {
+            ...shapeObject[shape],
+            ...(shapeImageObject[shape] || {})
+        };
+    }
+
+    $("#shape-wise-image-section").empty().html("");
+    $.each(mergedShapes, function (key, shapeItem) {
+
+        let shape = "shape_image_" + key;
+        let shapeName = shapeItem.shapeName || "Shape " + key;
+
+        let imagePath = "";
+        if (shapeItem?.image_name && shapeItem?.image_name?.path) {
+            imagePath = shapeItem?.image_name?.path;
+        }
+
+        let generateHtml =
+            `<div><div class="upload-file position-relative">
+                <label for="shape-img-upload-${key}">
+                    <input type="file" name="${shape}" class="single_file_input upload-file__input action-upload-shape-image"
+                    id="shape-img-upload-${key}" data-index="1" data-imgpreview="additional_Shape_Image_${key}"
+                    accept=".jpg, .webp, .png, .jpeg, .gif, .bmp, .tif, .tiff|image/*" required>
+                </label>
+                <div class="position-absolute end-0 d-flex gap-2 z-10 p-2">
+                    <label for="shape-img-upload-${key}">
+                    <div class="btn btn-outline-primary icon-btn position-relative product-image-edit-icon">
+                        <i class="fi fi-sr-pencil"></i>
+                    </div>
+                    </label>
+                    `+
+                    ( shapeItem?.image_name?.key ?
+                        `<a href="` + remove_url + `?id=${product_id}&name=${shapeItem?.image_name?.key}&shape=${key}"
+                           class="btn btn-danger cursor-pointer icon-btn"><i class="fi fi-rr-trash"></i></a>` : ``
+                    )
+                    + `
+                </div>
+                <div class="upload-file__wrapper">
+                    <img id="additional_Shape_Image_${key}" alt="" class="upload-file-img ${imagePath ? 'd-block' : '' }"
+                        src="${imagePath ?? 'img' }">
+                    <div class="upload-file-textbox text-center ${imagePath ? 'd-none' : '' }">
+                        <img width="34" height="34" class="svg" src="${$("#image-path-of-product-upload-icon").data("path")}"
+                        alt="image upload">
+                        <h6 class="mt-1 fw-medium lh-base text-center">
+                            <span class="text-info">${clickToUpload}</span>
+                            <br>${dragAndDrop}
+                        </h6>
+                        <small class="text-muted">Shape: ${key}</small>
+                    </div>
+                </div>
+                </div></div></div>`;
+
+        $("#shape-wise-image-section").append(generateHtml);
+        uploadShapeImage();
+    })
+
+    $(".action-upload-shape-image").on("change", function () {
+        uploadShapeImage(this);
+    });
+}
+
+$(".action-upload-shape-image").on("change", function () {
+    uploadShapeImage(this);
+});
+
+function uploadShapeImage(thisData = null) {
+    if (thisData) {
+        const previewImg = document.getElementById(thisData.dataset.imgpreview);
+        if (previewImg) {
+            previewImg.setAttribute("src", window.URL.createObjectURL(thisData.files[0]));
+            previewImg.classList.remove("d-none");
+            $(previewImg).closest('.upload-file__wrapper').find('.upload-file-textbox').addClass('d-none');
+        }
+    }
+}

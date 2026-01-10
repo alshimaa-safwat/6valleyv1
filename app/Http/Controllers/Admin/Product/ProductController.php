@@ -9,6 +9,7 @@ use App\Contracts\Repositories\BrandRepositoryInterface;
 use App\Contracts\Repositories\CartRepositoryInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ColorRepositoryInterface;
+use App\Contracts\Repositories\ShapeRepositoryInterface;
 use App\Contracts\Repositories\DealOfTheDayRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductAuthorRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductVariationRepositoryInterface;
@@ -82,6 +83,7 @@ class ProductController extends BaseController
         private readonly ProductSeoRepositoryInterface              $productSeoRepo,
         private readonly VendorRepositoryInterface                  $sellerRepo,
         private readonly ColorRepositoryInterface                   $colorRepo,
+        private readonly ShapeRepositoryInterface                  $shapeRepo,
         private readonly AttributeRepositoryInterface               $attributeRepo,
         private readonly TranslationRepositoryInterface             $translationRepo,
         private readonly CartRepositoryInterface                    $cartRepo,
@@ -91,9 +93,7 @@ class ProductController extends BaseController
         private readonly ReviewRepositoryInterface                  $reviewRepo,
         private readonly BannerRepositoryInterface                  $bannerRepo,
         private readonly ProductService                             $productService,
-    )
-    {
-    }
+    ) {}
 
     /**
      * @param Request|null $request
@@ -169,6 +169,7 @@ class ProductController extends BaseController
         $brandSetting = getWebConfig(name: 'product_brand');
         $digitalProductSetting = getWebConfig(name: 'digital_product');
         $colors = $this->colorRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $languages = getWebConfig(name: 'pnc_language') ?? null;
         $defaultLanguage = $languages[0];
@@ -176,7 +177,7 @@ class ProductController extends BaseController
         $digitalProductAuthors = $this->authorRepo->getListWhere(dataLimit: 'all');
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
 
-        return view('admin-views.product.add.index', compact('categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
+        return view('admin-views.product.add.index', compact('categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
     }
 
     public function add(ProductAddRequest $request, ProductService $service): JsonResponse|RedirectResponse
@@ -265,12 +266,14 @@ class ProductController extends BaseController
         $productPublishingHouseIds = $this->productService->getProductPublishingHouseInfo(product: $product)['ids'];
 
         $product['colors'] = json_decode($product['colors']);
+        $product['shapes'] = json_decode($product['shapes']);
         $categories = $this->categoryRepo->getListWhere(filters: ['position' => 0], dataLimit: 'all');
         $brands = $this->brandRepo->getListWhere(dataLimit: 'all');
         $brandSetting = getWebConfig(name: 'product_brand');
         $digitalProductSetting = getWebConfig(name: 'digital_product');
         $languages = getWebConfig(name: 'pnc_language') ?? null;
         $colors = $this->colorRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $defaultLanguage = $languages[0];
         $digitalProductFileTypes = ['audio', 'video', 'document', 'software'];
@@ -278,7 +281,7 @@ class ProductController extends BaseController
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
         $taxVatIds = $product?->taxVats?->pluck('tax_id')->toArray() ?? [];
 
-        return view('admin-views.product.update.index', compact('product', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
+        return view('admin-views.product.update.index', compact('product', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
     }
 
     public function update(ProductUpdateRequest $request, ProductService $service, string|int $id): JsonResponse|RedirectResponse
@@ -751,33 +754,34 @@ class ProductController extends BaseController
         $products = \App\Models\Product::whereIn('code', array_keys($dataArray['productsTax']))->get();
         $SystemTaxVat = SystemTaxSetup::where('is_active', 1)->where('is_default', 1)->first();
 
-        $allTaxIds = collect($dataArray['productsTax'])->flatten()->map(function ($ids) {
-            return explode(',', $ids);
-        })->flatten()->unique();
-        $validTaxIds = \Modules\TaxModule\app\Models\Tax::whereIn('id', $allTaxIds)->pluck('id')->toArray();
-        $rowsToInsert = [];
-        \Modules\TaxModule\app\Models\Taxable::where('taxable_type',' App\Models\Product')->whereIn('taxable_id', $products->pluck('id')->toArray() ?? [0])->delete();
-        foreach ($products as $product) {
-            $taxIds = explode(',', $dataArray['productsTax'][$product->code]);
-            foreach ($taxIds as $taxId) {
-                if(in_array($taxId, $validTaxIds)) {
-                    $rowsToInsert[] = [
-                        'taxable_type' =>  'App\Models\Product',
-                        'taxable_id' => $product->id,
-                        'system_tax_setup_id' => $SystemTaxVat->id,
-                        'tax_id' => $taxId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
+        if ($SystemTaxVat) {
+            $allTaxIds = collect($dataArray['productsTax'])->flatten()->map(function ($ids) {
+                return explode(',', $ids);
+            })->flatten()->unique();
+            $validTaxIds = \Modules\TaxModule\app\Models\Tax::whereIn('id', $allTaxIds)->pluck('id')->toArray();
+            $rowsToInsert = [];
+            \Modules\TaxModule\app\Models\Taxable::where('taxable_type', ' App\Models\Product')->whereIn('taxable_id', $products->pluck('id')->toArray() ?? [0])->delete();
+            foreach ($products as $product) {
+                $taxIds = explode(',', $dataArray['productsTax'][$product->code]);
+                foreach ($taxIds as $taxId) {
+                    if (in_array($taxId, $validTaxIds)) {
+                        $rowsToInsert[] = [
+                            'taxable_type' =>  'App\Models\Product',
+                            'taxable_id' => $product->id,
+                            'system_tax_setup_id' => $SystemTaxVat->id,
+                            'tax_id' => $taxId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
                 }
             }
-        }
-        if (!empty($rowsToInsert)) {
-            Taxable::insert($rowsToInsert);
+            if (!empty($rowsToInsert)) {
+                Taxable::insert($rowsToInsert);
+            }
         }
         ToastMagic::success($dataArray['message']);
         return back();
-
     }
 
     public function updatedProductList(Request $request): View
@@ -928,7 +932,6 @@ class ProductController extends BaseController
         } else {
             return response()->json(['status' => 'multiple_product', 'product_count' => $products->count()]);
         }
-
     }
 
     public function getMultipleProductDetailsView(Request $request): JsonResponse
@@ -1051,65 +1054,65 @@ class ProductController extends BaseController
     }
 
 
-  public function bulkPriceUpdate(BulkPriceUpdateRequest $request): RedirectResponse
+    public function bulkPriceUpdate(BulkPriceUpdateRequest $request): RedirectResponse
     {
         $percentage = $request->percentage;
         $isIncrease = $request->adjustment_type === 'increase';
         $multiplier = $isIncrease
             ? (1 + ($percentage / 100))
             : (1 - ($percentage / 100));
-    
+
         if ($multiplier <= 0) {
             ToastMagic::error(translate('Percentage is too high — price cannot be zero or negative.'));
             return back();
         }
-    
+
         try {
             DB::beginTransaction();
-    
+
             $query = ProductModel::query()
                 ->where('added_by', 'admin');
-    
+
             // if ($request->filled('seller_id')) {
             //     $query->where('user_id', $request->seller_id);
             // }
-    
+
             if ($request->filled('brand_id')) {
                 $query->where('brand_id', $request->brand_id);
             }
-    
+
             if ($request->filled('category_id')) {
                 $query->where('category_id', $request->category_id);
             }
-    
+
             if ($request->filled('sub_category_id')) {
                 $query->where('sub_category_id', $request->sub_category_id);
             }
-    
+
             if ($request->filled('sub_sub_category_id')) {
                 $query->where('sub_sub_category_id', $request->sub_sub_category_id);
             }
-    
+
             // if ($request->filled('request_status')) {
             //     $query->where('request_status', $request->request_status);
             // }
-    
+
             // if ($request->filled('status')) {
             //     $query->where('status', $request->status);
             // }
-    
+
             $products = $query->get();
             $affectedCount = $products->count();
-    
+
             if ($affectedCount === 0) {
                 ToastMagic::warning(translate('No products found matching the filters.'));
                 DB::rollBack();
                 return back();
             }
-    
-          foreach ($products as $product) {
+
+            foreach ($products as $product) {
                 $newUnitPrice = max(0.01, $product->unit_price * $multiplier);
-                
+
                 $variations = json_decode($product->variation, true);
                 if (is_array($variations) && count($variations) > 0) {
                     foreach ($variations as &$variation) {
@@ -1117,7 +1120,7 @@ class ProductController extends BaseController
                             $variation['price'] = round(max(0.01, $variation['price'] * $multiplier), 2);
                         }
                     }
-                    
+
                     $product->update([
                         'unit_price' => round($newUnitPrice, 2),
                         'variation' => json_encode($variations)
@@ -1128,25 +1131,23 @@ class ProductController extends BaseController
                     ]);
                 }
             }
-    
+
             DB::commit();
-            
+
             Cache::forget(CACHE_FOR_HOME_PAGE_LATEST_PRODUCT_LIST);
             Cache::forget(CACHE_FOR_HOME_PAGE_TOP_RATED_PRODUCT_LIST);
             Cache::forget(CACHE_FOR_HOME_PAGE_BEST_SELL_PRODUCT_LIST);
             Cache::forget(CACHE_FOR_RANDOM_SINGLE_PRODUCT);
             Cache::forget(CACHE_HOME_CATEGORIES_LIST);
-            
+
             ToastMagic::success(
                 translate('Prices updated successfully for :count products', ['count' => $affectedCount])
             );
-    
         } catch (\Exception $e) {
             DB::rollBack();
             ToastMagic::error(translate('Failed to update prices. Please try again.') . ' ' . $e->getMessage());
         }
-    
+
         return back();
     }
-
 }

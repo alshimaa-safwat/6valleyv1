@@ -491,6 +491,19 @@ class CartManager
             $variations['color'] = $string;
         }
 
+        // Add shape to variant string
+        if ($request->has('shape') && $request['shape']) {
+            $shape = \App\Models\Shape::find($request['shape']);
+            if ($shape) {
+                if ($string != null) {
+                    $string .= '-' . str_replace(' ', '', $shape->name);
+                } else {
+                    $string .= $shape->name;
+                }
+                $variations['shape'] = $shape->name;
+            }
+        }
+
         $choices = [];
         foreach (json_decode($product->choice_options) as $key => $choice) {
             $choices[$choice->name] = $request[$choice->name];
@@ -510,6 +523,7 @@ class CartManager
 
         $cartArray = [
             'color' => $request['color'] ?? null,
+            'shape' => $request['shape'] ?? null,
             'product_id' => $product['id'],
             'product_type' => $product['product_type'],
             'choices' => json_encode($choices),

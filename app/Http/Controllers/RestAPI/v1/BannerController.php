@@ -28,6 +28,5 @@ class BannerController extends Controller
         }
 
         return response()->json($bannerData, 200);
-
     }
 }
