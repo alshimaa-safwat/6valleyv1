@@ -4196,4 +4196,13 @@ return [
 	"add_shape_wise_product_images_here" => "Add shape wise product images here",
 	"Code with a minimum length requirement of 6 characters" => "Code with a minimum length requirement of 6 characters",
 	"no_Brand" => "No Brand",
+	"invalid_theme" => "Invalid theme",
+	"The_theme_must_be_a_ZIP_file." => "The theme must be a ZIP file.",
+	"theme_upload_successfully" => "Theme upload successfully",
+	"Please_ues_panel_comfortable_version" => "Please ues panel comfortable version",
+	"The_theme_upload_is_required." => "The theme upload is required.",
+	"products_Not_Found" => "Products Not Found",
+	"sorry_no_data_found_related_to_your_search" => "Sorry no data found related to your search",
+	"want_to_clear_all_cart?" => "Want to clear all cart ",
+	"search_by_vendors" => "Search by vendors",
 ];

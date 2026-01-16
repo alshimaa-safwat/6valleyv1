@@ -2046,6 +2046,12 @@ class ProductManager
             ->when($request->has('brand_ids') && !empty($request['brand_ids']) && is_array($request['brand_ids']), function ($query) use ($request) {
                 return $query->whereIn('brand_id', $request['brand_ids']);
             })
+            ->when($request['data_from'] == 'shop' && $request['shop_id'], function ($query) use ($request) {
+                return $query->where('shop_id', $request['shop_id']);
+            })
+            ->when($request->has('shop_id') && !empty($request['shop_id']) && $request['shop_id'] != 'all', function ($query) use ($request) {
+                return $query->where('shop_id', $request['shop_id']);
+            })
             ->when($request->has('search_category_value') && !empty($request['search_category_value']) && $request['search_category_value'] != 'all', function ($query) use ($request) {
                 return $query->where(['category_id' => $request['search_category_value']])
                     ->orWhere(function ($query) use ($request) {

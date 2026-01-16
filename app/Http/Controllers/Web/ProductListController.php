@@ -10,6 +10,7 @@ use App\Utils\CategoryManager;
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\Shop;
 use App\Utils\ProductManager;
 use Brian2694\Toastr\Facades\Toastr;
 use Illuminate\Contracts\View\View;
@@ -51,6 +52,7 @@ class ProductListController extends Controller
 
         $categories = CategoryManager::getCategoriesWithCountingAndPriorityWiseSorting();
         $activeBrands = BrandManager::getActiveBrandWithCountingAndPriorityWiseSorting();
+        $activeVendors = self::getActiveVendorsWithProductCounts($request);
 
         $data = self::getProductListRequestData(request: $request);
         if ($request['data_from'] == 'category' && $request['category_id']) {
@@ -77,7 +79,7 @@ class ProductListController extends Controller
         $pageTitleContent =  translate($data['offer_type']);
         if ($request['data_from'] == 'category') {
             $pageTitleContent = Category::when($request['category_id'], function ($query) use ($request) {
-              return $query->where('id', $request['category_id']);
+                return $query->where('id', $request['category_id']);
             })->when($request['sub_category_id'], function ($query) use ($request) {
                 return $query->where('id', $request['sub_category_id']);
             })->when($request['sub_sub_category_id'], function ($query) use ($request) {
@@ -86,7 +88,7 @@ class ProductListController extends Controller
         }
         if ($request['data_from'] == 'brand') {
             $pageTitleContent = Brand::when($request['brand_id'], function ($query) use ($request) {
-              return $query->where('id', $request['brand_id']);
+                return $query->where('id', $request['brand_id']);
             })->first()?->name ?? translate('Brand');
         }
 
@@ -96,13 +98,23 @@ class ProductListController extends Controller
         if ($request->has('author_id')) {
             $pageTitleContent = Author::firstWhere('id', $request['author_id'])?->name;
         }
+        if ($request['data_from'] == 'shop' && $request['shop_id']) {
+            $shop_data = Shop::active()->find((int)$request['shop_id']);
+            if ($shop_data) {
+                $pageTitleContent = $shop_data->name;
+            } else {
+                Toastr::warning(translate('not_found'));
+                return redirect('/');
+            }
+        }
 
         return view(VIEW_FILE_NAMES['products_view_page'], [
-            'pageTitleContent' => ucwords(str_replace('-',' ',$pageTitleContent)).' '.translate('products'),
+            'pageTitleContent' => ucwords(str_replace('-', ' ', $pageTitleContent)) . ' ' . translate('products'),
             'products' => $products,
             'data' => $data,
             'activeBrands' => $activeBrands,
             'categories' => $categories,
+            'activeVendors' => $activeVendors,
         ]);
     }
 
@@ -175,7 +187,7 @@ class ProductListController extends Controller
         }
 
         return view(VIEW_FILE_NAMES['products_view_page'], [
-            'pageTitleContent' => ucwords(str_replace('-',' ',$data['offer_type'] ?? $data['data_from'])).' '.translate('products'),
+            'pageTitleContent' => ucwords(str_replace('-', ' ', $data['offer_type'] ?? $data['data_from'])) . ' ' . translate('products'),
             'products' => $products,
             'data' => $data,
             'ratings' => $ratings,
@@ -255,7 +267,7 @@ class ProductListController extends Controller
         }
 
         return view(VIEW_FILE_NAMES['products_view_page'], [
-            'pageTitleContent' => translate($data['offer_type'] ?? $data['data_from']).' '.translate('products'),
+            'pageTitleContent' => translate($data['offer_type'] ?? $data['data_from']) . ' ' . translate('products'),
             'products' => $products,
             'tag_category' => $tagCategory,
             'tagPublishingHouse' => $tagPublishingHouse,
@@ -426,6 +438,46 @@ class ProductListController extends Controller
             'tag_brand' => $tagBrand,
             'singlePageProductCount' => $singlePageProductCount
         ]);
+    }
+
+    private function getActiveVendorsWithProductCounts($request)
+    {
+        return Shop::active()
+            ->withCount(['products' => function ($query) use ($request) {
+                $query->active();
+                if ($request->has('offer_type') && $request['offer_type'] == 'clearance_sale') {
+                    $query->whereHas('clearanceSale', function ($q) {
+                        $q->active();
+                    });
+                }
+                if ($request->has('offer_type') && $request['offer_type'] == 'flash-deals') {
+                    $query->whereHas('flashDealProducts.flashDeal');
+                }
+            }])
+            ->whereHas('products', function ($query) use ($request) {
+                $query->active();
+                if ($request->has('offer_type') && $request['offer_type'] == 'clearance_sale') {
+                    $query->whereHas('clearanceSale', function ($q) {
+                        $q->active();
+                    });
+                }
+                if ($request->has('offer_type') && $request['offer_type'] == 'flash-deals') {
+                    $query->whereHas('flashDealProducts.flashDeal');
+                }
+            })
+            ->get()
+            ->map(function ($shop) {
+                return [
+                    'id' => $shop->id,
+                    'name' => $shop->name,
+                    'vendor_products_count' => $shop->products_count ?? 0,
+                ];
+            })
+            ->filter(function ($vendor) {
+                return $vendor['vendor_products_count'] > 0;
+            })
+            ->sortByDesc('vendor_products_count')
+            ->values();
     }
 
     public function getFlashDealsProducts(Request $request): JsonResponse

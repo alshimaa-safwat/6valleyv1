@@ -21,6 +21,7 @@
             <input hidden name="data_from" value="{{ request('data_from') }}">
             <input hidden name="category_id" value="{{ request('category_id') }}">
             <input hidden name="brand_id" value="{{ request('brand_id') }}">
+            <input hidden name="shop_id" value="{{ request('shop_id') }}">
 
             @csrf
             @include('web-views.products.partials._product-list-header', [
@@ -56,6 +57,12 @@
                                         'productBrands' => $activeBrands,
                                         'dataFrom' => request('data_from'),
                                     ])
+                                    @if(isset($activeVendors) && count($activeVendors) > 0)
+                                        @include('web-views.products.partials._filter-product-vendors', [
+                                            'productVendors' => $activeVendors,
+                                            'dataFrom' => request('data_from'),
+                                        ])
+                                    @endif
                                     @include('web-views.products.partials._filter-publishing-houses', [
                                         'productPublishingHouses' => $web_config['publishing_houses'],
                                         'dataFrom' => request('data_from'),
@@ -98,6 +105,7 @@
           data-message="{{ translate('items_found') }}"
           data-publishing-house-id="{{ request('publishing_house_id') }}"
           data-author-id="{{ request('author_id') }}"
+          data-shop-id="{{ request('shop_id') ?? '' }}"
           data-offer="{{ request('offer_type') ?? '' }}"
     ></span>
 @endsection
