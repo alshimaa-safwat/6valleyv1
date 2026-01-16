@@ -89,9 +89,7 @@ class ProductController extends BaseController
         private  readonly ShopRepositoryInterface                   $shopRepo,
         private readonly ProductService                             $productService,
         private readonly AIUsageManagerService                      $AIUsageManagerService
-    )
-    {
-    }
+    ) {}
 
     /**
      * @param Request|null $request
@@ -143,8 +141,19 @@ class ProductController extends BaseController
             $subSubCategories = $this->categoryRepo->getListWhere(filters: ['parent_id' => $request['sub_category_id']]);
         }
 
-        return view(Product::LIST[VIEW], compact('products', 'type', 'searchValue', 'brands',
-            'categories', 'subCategories', 'subSubCategories', 'subCategory', 'subSubCategory', 'filters', 'productWiseTax'));
+        return view(Product::LIST[VIEW], compact(
+            'products',
+            'type',
+            'searchValue',
+            'brands',
+            'categories',
+            'subCategories',
+            'subSubCategories',
+            'subCategory',
+            'subSubCategory',
+            'filters',
+            'productWiseTax'
+        ));
     }
 
     public function getRequestRestockListView(Request $request): View|RedirectResponse
@@ -182,8 +191,15 @@ class ProductController extends BaseController
         $subCategory = $this->categoryRepo->getFirstWhere(params: ['id' => $request['sub_category_id']]);
         $subCategoryList = $this->categoryRepo->getListWhere(filters: ['parent_id' => $request['category_id']], dataLimit: 'all');
         $totalRestockProducts = $this->restockProductRepo->getListWhere(filters: $filters, dataLimit: 'all')->count();
-        return view('vendor-views.product.request-restock-list', compact('restockProducts', 'brands',
-            'categories', 'subCategory', 'filters', 'totalRestockProducts', 'subCategoryList'));
+        return view('vendor-views.product.request-restock-list', compact(
+            'restockProducts',
+            'brands',
+            'categories',
+            'subCategory',
+            'filters',
+            'totalRestockProducts',
+            'subCategoryList'
+        ));
     }
 
     public function deleteRestock(string|int $id): RedirectResponse
@@ -224,7 +240,7 @@ class ProductController extends BaseController
         }
 
         $shopId = $this->shopRepo->getFirstWhere(params: ['seller_id' => auth('seller')->user()->id])['id'];
-        $dataArray = $service->getAddProductData(request: $request, addedBy: 'seller', shopId:  $shopId);
+        $dataArray = $service->getAddProductData(request: $request, addedBy: 'seller', shopId: $shopId);
         $savedProduct = $this->productRepo->add(data: $dataArray);
         $this->productRepo->addRelatedTags(request: $request, product: $savedProduct);
         $this->translationRepo->add(request: $request, model: 'App\Models\Product', id: $savedProduct->id);
@@ -278,7 +294,7 @@ class ProductController extends BaseController
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
         $taxVatIds = $product?->taxVats?->pluck('tax_id')->toArray() ?? [];
         $aiRemainingCount = $this->AIUsageManagerService->getGenerateRemainingCount();
-        return view('vendor-views.product.edit', compact('product', 'categories','aiRemainingCount', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
+        return view('vendor-views.product.edit', compact('product', 'categories', 'aiRemainingCount', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
     }
 
     public function update(ProductUpdateRequest $request, ProductService $service, string|int $id): JsonResponse|RedirectResponse
@@ -800,12 +816,15 @@ class ProductController extends BaseController
 
     public function getBulkImportView(): View
     {
-        return view('vendor-views.product.bulk-import');
+        $colors = $this->colorRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+        $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+        return view('vendor-views.product.bulk-import', compact('colors', 'shapes', 'attributes'));
     }
 
     public function importBulkProduct(Request $request, ProductService $service): RedirectResponse
     {
-        $shopId =$this->shopRepo->getFirstWhere(params: ['seller_id' => auth('seller')->user()->id])['id'] ?? null;
+        $shopId = $this->shopRepo->getFirstWhere(params: ['seller_id' => auth('seller')->user()->id])['id'] ?? null;
         $dataArray = $service->getImportBulkProductData(request: $request, addedBy: 'seller', shopId: $shopId);
         if (!$dataArray['status']) {
             ToastMagic::error($dataArray['message']);
@@ -868,7 +887,6 @@ class ProductController extends BaseController
         $categories = $this->categoryRepo->getListWhere(filters: ['position' => 0], dataLimit: 'all');
 
         return view(Product::PRODUCT_GALLERY[VIEW], compact('products', 'brands', 'categories', 'searchValue'));
-
     }
 
     public function getStockLimitStatus(Request $request): JsonResponse

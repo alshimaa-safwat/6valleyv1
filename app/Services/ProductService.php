@@ -818,7 +818,10 @@ class ProductService
             'shipping_cost',
             'multiply_qty',
             'thumbnail',
-            'free_shipping'
+            'free_shipping',
+            'colors',
+            'shapes',
+            'attributes'
         ];
 
         // Translatable field patterns (will be discovered automatically)
@@ -860,7 +863,11 @@ class ProductService
 
                 // Check if it's a base or optional column
                 if (!$isTranslatable) {
-                    if (!in_array($key, $baseColumns) && !in_array($key, $optionalColumns)) {
+                    // Check if it's an attribute values column (e.g., attribute_1_values, attribute_KG, attribute_KG_values)
+                    // Supports both: attribute_ID_values or attribute_Name or attribute_Name_values
+                    $isAttributeColumn = preg_match('/^attribute_([a-z0-9_]+)(_values)?$/i', $key);
+                    
+                    if (!in_array($key, $baseColumns) && !in_array($key, $optionalColumns) && !$isAttributeColumn) {
                         return [
                             'status' => false,
                             'message' => translate('Please_upload_the_correct_format_file') . ' - Invalid column: ' . $key,
@@ -898,6 +905,164 @@ class ProductService
             $productCode = self::getUniqueProductSKUCode();
             $productsTax[$productCode] = $collection['tax_ids'] ?? '';
 
+            // Process colors
+            $colorsData = [];
+            if (!empty($collection['colors'])) {
+                $colorCodes = array_map('trim', explode(',', $collection['colors']));
+                foreach ($colorCodes as $colorCode) {
+                    if (!empty($colorCode)) {
+                        $colorsData[] = $colorCode;
+                    }
+                }
+            }
+
+            // Process shapes
+            $shapesData = [];
+            if (!empty($collection['shapes'])) {
+                $shapeIds = array_map('trim', explode(',', $collection['shapes']));
+                foreach ($shapeIds as $shapeId) {
+                    if (!empty($shapeId) && is_numeric($shapeId)) {
+                        $shapesData[] = (int)$shapeId;
+                    }
+                }
+            }
+
+            // Process attributes and choice_options
+            $attributesData = [];
+            $choiceOptions = [];
+            if (!empty($collection['attributes'])) {
+                $attributeIdentifiers = array_map('trim', explode(',', $collection['attributes']));
+                
+                foreach ($attributeIdentifiers as $attributeIdentifier) {
+                    if (empty($attributeIdentifier)) {
+                        continue;
+                    }
+                    
+                    $attributeId = null;
+                    $attributeName = null;
+                    
+                    // Check if identifier is numeric (ID) or text (name)
+                    if (is_numeric($attributeIdentifier)) {
+                        $attributeId = (int)$attributeIdentifier;
+                        $attribute = \App\Models\Attribute::find($attributeId);
+                        if ($attribute) {
+                            $attributeName = $attribute->name;
+                        }
+                    } else {
+                        // It's a name - find the attribute by name
+                        $attribute = \App\Models\Attribute::where('name', $attributeIdentifier)->first();
+                        if ($attribute) {
+                            $attributeId = $attribute->id;
+                            $attributeName = $attribute->name;
+                        } else {
+                            // If not found, use the identifier as the name
+                            $attributeName = $attributeIdentifier;
+                        }
+                    }
+                    
+                    if ($attributeId) {
+                        $attributesData[] = $attributeId;
+                    }
+                    
+                    // Try multiple column name patterns:
+                    // 1. attribute_{id}_values
+                    // 2. attribute_{name}_values
+                    // 3. attribute_{id}
+                    // 4. attribute_{name}
+                    $valuesColumnName = null;
+                    $values = [];
+                    
+                    if ($attributeId) {
+                        // Try ID-based patterns first
+                        if (isset($collection['attribute_' . $attributeId . '_values'])) {
+                            $valuesColumnName = 'attribute_' . $attributeId . '_values';
+                        } elseif (isset($collection['attribute_' . $attributeId])) {
+                            $valuesColumnName = 'attribute_' . $attributeId;
+                        }
+                    }
+                    
+                    // If not found with ID, try name-based patterns
+                    if (!$valuesColumnName && $attributeName) {
+                        $nameSlug = str_replace(' ', '_', $attributeName);
+                        if (isset($collection['attribute_' . $nameSlug . '_values'])) {
+                            $valuesColumnName = 'attribute_' . $nameSlug . '_values';
+                        } elseif (isset($collection['attribute_' . $nameSlug])) {
+                            $valuesColumnName = 'attribute_' . $nameSlug;
+                        }
+                    }
+                    
+                    // Get values from the found column
+                    if ($valuesColumnName && !empty($collection[$valuesColumnName])) {
+                        $values = array_map('trim', explode(',', $collection[$valuesColumnName]));
+                        $values = array_filter($values, fn($v) => !empty($v));
+                        
+                        if (!empty($values)) {
+                            $choiceId = $attributeId ? $attributeId : 'attr_' . str_replace(' ', '_', $attributeIdentifier);
+                            $choiceOptions[] = [
+                                'name' => 'choice_' . $choiceId,
+                                'title' => $attributeName ?: ('Attribute ' . $attributeIdentifier),
+                                'options' => array_values($values)
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // Generate variations from colors, shapes, and attributes
+            $variations = [];
+            $options = [];
+            
+            if (!empty($colorsData)) {
+                $options[] = $colorsData;
+            }
+            if (!empty($shapesData)) {
+                $options[] = $shapesData;
+            }
+            foreach ($choiceOptions as $choice) {
+                $options[] = $choice['options'];
+            }
+
+            // Generate combinations if we have options
+            if (!empty($options)) {
+                $combinations = $this->getCombinations($options);
+                $unitPrice = currencyConverter(amount: $collection['unit_price'] ?? 0);
+                $totalStock = $collection['current_stock'] ?? 0;
+                $stockPerVariant = count($combinations) > 0 ? (int)floor($totalStock / count($combinations)) : $totalStock;
+
+                foreach ($combinations as $combination) {
+                    $variantString = '';
+                    $combinationIndex = 0;
+                    
+                    foreach ($combination as $item) {
+                        if ($combinationIndex > 0) {
+                            $variantString .= '-' . str_replace(' ', '', $item);
+                        } else {
+                            // First item - check if it's a color, shape, or attribute value
+                            if (!empty($colorsData) && in_array($item, $colorsData)) {
+                                $colorRecord = $this->color->where('code', $item)->first();
+                                $variantString .= $colorRecord ? $colorRecord->name : str_replace(' ', '', $item);
+                            } elseif (!empty($shapesData) && in_array($item, $shapesData)) {
+                                $shapeRecord = $this->shape->find($item);
+                                $variantString .= $shapeRecord ? $shapeRecord->name : str_replace(' ', '', $item);
+                            } else {
+                                $variantString .= str_replace(' ', '', $item);
+                            }
+                        }
+                        $combinationIndex++;
+                    }
+
+                    $variations[] = [
+                        'type' => $variantString,
+                        'price' => $unitPrice,
+                        'sku' => $productCode . '-' . Str::slug($variantString),
+                        'qty' => $stockPerVariant
+                    ];
+                }
+            }
+
+            // Calculate total stock from variations
+            $finalStock = !empty($variations) ? array_sum(array_column($variations, 'qty')) : ($collection['current_stock'] ?? 0);
+
             $products[] = [
                 'name' => $translationFields['name']['en'] ?? '',
                 'shop_id' => $shopId,
@@ -925,7 +1090,7 @@ class ProductService
                 'discount_type' => $collection['discount_type'] ?? 'flat',
                 'shipping_cost' => currencyConverter(amount: $collection['shipping_cost'] ?? 0),
                 'multiply_qty' => $collection['multiply_qty'] ?? 0,
-                'current_stock' => $collection['current_stock'] ?? 0,
+                'current_stock' => $finalStock,
                 'details' => $translationFields['description']['en'] ?? '',
                 'video_provider' => 'youtube',
                 'video_url' => $collection['youtube_video_url'] ?? null,
@@ -933,10 +1098,11 @@ class ProductService
                 'thumbnail' => $thumbnail[1] ?? $thumbnail[0],
                 'status' => $addedBy == 'admin' && ($collection['status'] ?? 0) == 1 ? 1 : 0,
                 'request_status' => $addedBy == 'admin' ? 1 : (getWebConfig(name: 'new_product_approval') == 1 ? 0 : 1),
-                'colors' => json_encode([]),
-                'attributes' => json_encode([]),
-                'choice_options' => json_encode([]),
-                'variation' => json_encode([]),
+                'colors' => json_encode($colorsData),
+                'shapes' => json_encode($shapesData),
+                'attributes' => json_encode($attributesData),
+                'choice_options' => json_encode($choiceOptions),
+                'variation' => json_encode($variations),
                 'featured_status' => 0,
                 'added_by' => $addedBy,
                 'user_id' => $addedBy == 'admin' ? auth('admin')->id() : auth('seller')->id(),

@@ -25,9 +25,7 @@ class OrderReportController extends Controller
     public function __construct(
         private readonly VendorRepositoryInterface $vendorRepo,
         private readonly BrandRepositoryInterface  $brandRepo,
-    )
-    {
-    }
+    ) {}
 
     public function order_list(Request $request): ViewResponse
     {
@@ -36,10 +34,11 @@ class OrderReportController extends Controller
         $from = $request['from'];
         $to = $request['to'];
         $order_type = $request['order_type'] ?? 'all';
-        $brands = $this->brandRepo->getListWhere(filters: ['status' => 1],dataLimit: 'all');
+        $brands = $this->brandRepo->getListWhere(filters: ['status' => 1], dataLimit: 'all');
 
         $search = $request['search'];
-        $query_param = ['seller_id' => $seller_id, 'search' => $search, 'date_type' => $date_type, 'from' => $from, 'to' => $to];
+        $brand_id = $request['brand_id'] ?? 'all';
+        $query_param = ['seller_id' => $seller_id, 'search' => $search, 'date_type' => $date_type, 'from' => $from, 'to' => $to, 'brand_id' => $brand_id, 'order_type' => $order_type];
         $sellers = Seller::where(['status' => 'approved'])->get();
 
         $chart_data = self::order_report_chart_filter($request);
@@ -115,7 +114,7 @@ class OrderReportController extends Controller
             'offline_payment' => $offline_payment,
             'digital_payment' => $digital_payment,
         ];
-        return view('admin-views.report.order-index', compact('orders', 'order_count', 'payment_data', 'chart_data', 'due_amount', 'settled_amount', 'sellers', 'seller_id', 'search', 'date_type', 'from', 'to','order_type' ,'totalReferralDiscount','brands'));
+        return view('admin-views.report.order-index', compact('orders', 'order_count', 'payment_data', 'chart_data', 'due_amount', 'settled_amount', 'sellers', 'seller_id', 'search', 'date_type', 'from', 'to', 'order_type', 'totalReferralDiscount', 'brands', 'brand_id'));
     }
 
     public function order_report_chart_filter($request)
@@ -159,7 +158,6 @@ class OrderReportController extends Controller
             } elseif ($from_month == $to_month) {
                 return self::order_report_same_month($request, $start_date, $end_date, $from_month, $to_day, $from_day);
             }
-
         }
     }
 
@@ -326,7 +324,7 @@ class OrderReportController extends Controller
     public function orderReportExportExcel(Request $request): BinaryFileResponse
     {
         // $orders = self::all_order_table_data_filter($request)->latest('updated_at')->get();
-        $orders = self::all_order_table_data_filter($request)->with(['details.productAllStatus.brand'])->latest('updated_at')->get();   
+        $orders = self::all_order_table_data_filter($request)->with(['details.productAllStatus.brand'])->latest('updated_at')->get();
 
         $vendor = $request->has('seller_id') && $request['seller_id'] != 'inhouse' && $request['seller_id'] != 'all' ? ($this->vendorRepo->getFirstWhere(params: ['id' => $request['seller_id']], relations: ['shop'])) : ($request['seller_id'] ?? 'all');
         $data = [
@@ -364,13 +362,19 @@ class OrderReportController extends Controller
                 });
             })
             ->when($order_type !== 'all', function ($q) use ($order_type) {
-                 $q->where('order_type', $order_type);
+                $q->where('order_type', $order_type);
             })
 
             ->when($brand_id != 'all', function ($q) use ($brand_id) {
-                $q->whereHas('details.product', function ($query) use ($brand_id) {
-                    $query->where('brand_id', $brand_id);
-                });
+                if ($brand_id == 'no_brand') {
+                    $q->whereHas('details.product', function ($query) {
+                        $query->whereNull('brand_id');
+                    });
+                } else {
+                    $q->whereHas('details.product', function ($query) use ($brand_id) {
+                        $query->where('brand_id', $brand_id);
+                    });
+                }
             });
 
         return self::date_wise_common_filter($orders_query, $date_type, $from, $to);

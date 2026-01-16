@@ -9,7 +9,6 @@ use App\Contracts\Repositories\BrandRepositoryInterface;
 use App\Contracts\Repositories\CartRepositoryInterface;
 use App\Contracts\Repositories\CategoryRepositoryInterface;
 use App\Contracts\Repositories\ColorRepositoryInterface;
-use App\Contracts\Repositories\ShapeRepositoryInterface;
 use App\Contracts\Repositories\DealOfTheDayRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductAuthorRepositoryInterface;
 use App\Contracts\Repositories\DigitalProductVariationRepositoryInterface;
@@ -21,6 +20,7 @@ use App\Contracts\Repositories\PublishingHouseRepositoryInterface;
 use App\Contracts\Repositories\RestockProductCustomerRepositoryInterface;
 use App\Contracts\Repositories\RestockProductRepositoryInterface;
 use App\Contracts\Repositories\ReviewRepositoryInterface;
+use App\Contracts\Repositories\ShapeRepositoryInterface;
 use App\Contracts\Repositories\StockClearanceProductRepositoryInterface;
 use App\Contracts\Repositories\StockClearanceSetupRepositoryInterface;
 use App\Contracts\Repositories\TranslationRepositoryInterface;
@@ -83,7 +83,7 @@ class ProductController extends BaseController
         private readonly ProductSeoRepositoryInterface              $productSeoRepo,
         private readonly VendorRepositoryInterface                  $sellerRepo,
         private readonly ColorRepositoryInterface                   $colorRepo,
-        private readonly ShapeRepositoryInterface                  $shapeRepo,
+        private readonly ShapeRepositoryInterface                   $shapeRepo,
         private readonly AttributeRepositoryInterface               $attributeRepo,
         private readonly TranslationRepositoryInterface             $translationRepo,
         private readonly CartRepositoryInterface                    $cartRepo,
@@ -93,7 +93,9 @@ class ProductController extends BaseController
         private readonly ReviewRepositoryInterface                  $reviewRepo,
         private readonly BannerRepositoryInterface                  $bannerRepo,
         private readonly ProductService                             $productService,
-    ) {}
+    )
+    {
+    }
 
     /**
      * @param Request|null $request
@@ -177,7 +179,7 @@ class ProductController extends BaseController
         $digitalProductAuthors = $this->authorRepo->getListWhere(dataLimit: 'all');
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
 
-        return view('admin-views.product.add.index', compact('categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
+        return view('admin-views.product.add.index', compact('categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes' , 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productWiseTax', 'taxVats'));
     }
 
     public function add(ProductAddRequest $request, ProductService $service): JsonResponse|RedirectResponse
@@ -266,14 +268,13 @@ class ProductController extends BaseController
         $productPublishingHouseIds = $this->productService->getProductPublishingHouseInfo(product: $product)['ids'];
 
         $product['colors'] = json_decode($product['colors']);
-        $product['shapes'] = json_decode($product['shapes']);
         $categories = $this->categoryRepo->getListWhere(filters: ['position' => 0], dataLimit: 'all');
         $brands = $this->brandRepo->getListWhere(dataLimit: 'all');
         $brandSetting = getWebConfig(name: 'product_brand');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $digitalProductSetting = getWebConfig(name: 'digital_product');
         $languages = getWebConfig(name: 'pnc_language') ?? null;
         $colors = $this->colorRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
-        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'desc'], dataLimit: 'all');
         $defaultLanguage = $languages[0];
         $digitalProductFileTypes = ['audio', 'video', 'document', 'software'];
@@ -281,7 +282,7 @@ class ProductController extends BaseController
         $publishingHouseList = $this->publishingHouseRepo->getListWhere(dataLimit: 'all');
         $taxVatIds = $product?->taxVats?->pluck('tax_id')->toArray() ?? [];
 
-        return view('admin-views.product.update.index', compact('product', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes', 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
+        return view('admin-views.product.update.index', compact('product', 'categories', 'brands', 'brandSetting', 'digitalProductSetting', 'colors', 'shapes' , 'attributes', 'languages', 'defaultLanguage', 'digitalProductFileTypes', 'digitalProductAuthors', 'publishingHouseList', 'productAuthorIds', 'productPublishingHouseIds', 'productWiseTax', 'taxVats', 'taxVatIds'));
     }
 
     public function update(ProductUpdateRequest $request, ProductService $service, string|int $id): JsonResponse|RedirectResponse
@@ -738,7 +739,11 @@ class ProductController extends BaseController
 
     public function getBulkImportView(): View
     {
-        return view(Product::BULK_IMPORT[VIEW]);
+        $colors = $this->colorRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+        $shapes = $this->shapeRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+        $attributes = $this->attributeRepo->getList(orderBy: ['name' => 'asc'], dataLimit: 'all');
+
+        return view(Product::BULK_IMPORT[VIEW] , compact('colors', 'shapes', 'attributes'));
     }
 
     public function importBulkProduct(Request $request, ProductService $service): RedirectResponse
@@ -754,31 +759,29 @@ class ProductController extends BaseController
         $products = \App\Models\Product::whereIn('code', array_keys($dataArray['productsTax']))->get();
         $SystemTaxVat = SystemTaxSetup::where('is_active', 1)->where('is_default', 1)->first();
 
-        if ($SystemTaxVat) {
-            $allTaxIds = collect($dataArray['productsTax'])->flatten()->map(function ($ids) {
-                return explode(',', $ids);
-            })->flatten()->unique();
-            $validTaxIds = \Modules\TaxModule\app\Models\Tax::whereIn('id', $allTaxIds)->pluck('id')->toArray();
-            $rowsToInsert = [];
-            \Modules\TaxModule\app\Models\Taxable::where('taxable_type', ' App\Models\Product')->whereIn('taxable_id', $products->pluck('id')->toArray() ?? [0])->delete();
-            foreach ($products as $product) {
-                $taxIds = explode(',', $dataArray['productsTax'][$product->code]);
-                foreach ($taxIds as $taxId) {
-                    if (in_array($taxId, $validTaxIds)) {
-                        $rowsToInsert[] = [
-                            'taxable_type' =>  'App\Models\Product',
-                            'taxable_id' => $product->id,
-                            'system_tax_setup_id' => $SystemTaxVat->id,
-                            'tax_id' => $taxId,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
+        $allTaxIds = collect($dataArray['productsTax'])->flatten()->map(function ($ids) {
+            return explode(',', $ids);
+        })->flatten()->unique();
+        $validTaxIds = \Modules\TaxModule\app\Models\Tax::whereIn('id', $allTaxIds)->pluck('id')->toArray();
+        $rowsToInsert = [];
+        \Modules\TaxModule\app\Models\Taxable::where('taxable_type', ' App\Models\Product')->whereIn('taxable_id', $products->pluck('id')->toArray() ?? [0])->delete();
+        foreach ($products as $product) {
+            $taxIds = explode(',', $dataArray['productsTax'][$product->code]);
+            foreach ($taxIds as $taxId) {
+                if (in_array($taxId, $validTaxIds)) {
+                    $rowsToInsert[] = [
+                        'taxable_type' => 'App\Models\Product',
+                        'taxable_id' => $product->id,
+                        'system_tax_setup_id' => $SystemTaxVat?->id,
+                        'tax_id' => $taxId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 }
             }
-            if (!empty($rowsToInsert)) {
-                Taxable::insert($rowsToInsert);
-            }
+        }
+        if (!empty($rowsToInsert)) {
+            Taxable::insert($rowsToInsert);
         }
         ToastMagic::success($dataArray['message']);
         return back();

@@ -19,7 +19,7 @@
                         ({{ getCurrencySymbol() }})
                     </label>
                 </th>
-                <th class="text-center">
+                <th class="text-center d-none">
                     <label for="" class="control-label">
                         {{ translate('SKU') }}
                     </label>
@@ -52,7 +52,7 @@
                                step="0.01"
                                class="form-control" required placeholder="{{ translate('ex').': 100'}}">
                     </td>
-                    <td>
+                    <td class="d-none">
                         <input type="text" name="sku_{{ $combination['type'] }}" value="{{ $combination['sku'] }}"
                                class="form-control store-keeping-unit" required>
                     </td>
